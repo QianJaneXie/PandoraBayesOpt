@@ -6,7 +6,7 @@ from gpytorch.constraints import GreaterThan
 from botorch.models.transforms import Standardize
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import basinhopping
 
 def fit_gp_model(X, Y, nu=2.5, lengthscale=1.0, outputscale=1.0, Yvar=None):
     if X.ndim == 1:
@@ -36,7 +36,7 @@ def fit_gp_model(X, Y, nu=2.5, lengthscale=1.0, outputscale=1.0, Yvar=None):
     return model
 
 
-def find_global_optimum(objective, dim, maximize, num_restarts=None, method='L-BFGS-B'):
+def find_global_optimum(objective, dim, maximize, niter=None, method='L-BFGS-B'):
     """
     Find the global optimum using multi-start optimization.
 
@@ -44,7 +44,7 @@ def find_global_optimum(objective, dim, maximize, num_restarts=None, method='L-B
     - objective (function): The objective function to optimize.
     - dim (int): The number of dimensions
     - maximize (bool): If True, maximizes the objective; otherwise, minimizes.
-    - num_restarts (int): Number of starting points for the optimization.
+    - niter (int): Number of iterations for the optimization.
 
     Returns:
     - float: The global optimum found.
@@ -58,19 +58,21 @@ def find_global_optimum(objective, dim, maximize, num_restarts=None, method='L-B
     
     best_result = None
 
-    if num_restarts == None:
-        num_restarts = 200*dim
+    # Generate a random initial guess within the bounds
+    initial_guess = torch.rand(dim)
 
-    for _ in range(num_restarts):
-        # Generate a random initial guess within the bounds
-        initial_guess = torch.rand(dim)
+    # Define the minimizer options
+    minimizer_kwargs = {"method": method, "bounds": list(zip(np.zeros(dim), np.ones(dim)))}
 
-        # Run the optimization
-        result = minimize(scipy_objective, initial_guess, method=method, bounds=scipy_bounds)
+    if niter == None:
+        niter = 200*dim
 
-        # Update the best result if this result is better
-        if best_result is None or result.fun < best_result.fun:
-            best_result = result
+    # Run basinhopping
+    result = basinhopping(scipy_objective, initial_guess, niter=niter, T=1.0, stepsize=0.5, minimizer_kwargs=minimizer_kwargs)
+
+    # Update the best result if this result is better
+    if best_result is None or result.fun < best_result.fun:
+        best_result = result
 
     global_optimum = scipy_objective(best_result.x).item()
 
