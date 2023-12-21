@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[4]:
-
+import os
+seed = int(os.getenv('MY_SEED', '42'))  # Default to 42 if MY_SEED is not set
+print(seed)
 
 import torch
-
-
-# In[5]:
-
 
 # use a GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,20 +13,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
 
-
-# In[15]:
-
-
-import utils
-
-# Re-import GittinsIndex from the reloaded module
-from utils import fit_gp_model
+# Set the seed for reproducibility
+torch.manual_seed(seed)
 
 
-# In[11]:
-
-
-import torch
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from botorch.utils.gp_sampling import get_deterministic_model, RandomFourierFeatures
 
@@ -48,8 +35,6 @@ def create_objective_model(dim, nu, lengthscale, outputscale, num_rff_features, 
     Returns:
     - objective_model: The model used to generate the objective function.
     """
-    # Set the seed for reproducibility
-    torch.manual_seed(seed)
 
     # Set up the Matern kernel
     base_kernel = MaternKernel(nu=nu).double()
@@ -71,10 +56,7 @@ def create_objective_model(dim, nu, lengthscale, outputscale, num_rff_features, 
     return objective_model
 
 
-# In[12]:
-
-
-def create_objective_function(num_dimensions, lengthscale, outputscale, nu=0.5, num_rff_features=1280, seed=42):
+def create_objective_function(dim, lengthscale, outputscale, nu, num_rff_features, seed):
     
     """
     Create and return the objective function sampled from a Matern kernel.
@@ -92,7 +74,7 @@ def create_objective_function(num_dimensions, lengthscale, outputscale, nu=0.5, 
     """
     
     # Create the objective model inside the closure
-    objective_model = create_objective_model(num_dimensions, lengthscale, outputscale, nu, num_rff_features, seed)
+    objective_model = create_objective_model(dim, lengthscale, outputscale, nu, num_rff_features, seed)
 
     # Define the objective function that only takes X
     def objective(X):
@@ -110,11 +92,12 @@ def create_objective_function(num_dimensions, lengthscale, outputscale, nu=0.5, 
 
     return objective
 
+from botorch.acquisition import ExpectedImprovement
+from acquisition import GittinsIndex
+from bayesianoptimizer import BayesianOptimizer
+from utils import find_global_optimum
 
-# In[13]:
-
-
-import numpy as np
+import toml  # or use 'import json'
 
 # Example Usage for 1D: 
 
@@ -125,64 +108,67 @@ lengthscale = 1/16
 outputscale = 2.0
 num_rff_features = 1280
 
-# In[67]:
-
-from botorch.acquisition import ExpectedImprovement
-from acquisition import GittinsIndex
-from bayesianoptimizer import BayesianOptimizer
-
-
-# In[82]:
-
-
 maximize = False
-num_iterations = 24
-
-
-# In[83]:
-
-
-num_trials = 30  # Number of trials for each policy
-num_iterations = 24  # Budget for cumulative cost
-
-EI_best_histories = []
-EI_cost_histories = []
+num_iterations = 60  # Time budget
 
 lmbda_values = [0.1, 0.05, 0.01, 0.005, 0.001]
-GI_best_histories = {lmbda: [] for lmbda in lmbda_values}
-GI_cost_histories = {lmbda: [] for lmbda in lmbda_values}
+GI_regret_history = {}
 
-for trial in range(num_trials):
-    
-    seed = trial
-    
-    print("seed:", seed)
+objective = create_objective_function(dim, nu, lengthscale, outputscale, num_rff_features, seed=seed)
+global_optimum = find_global_optimum(objective, dim, maximize)
 
-    objective = create_objective_function(dim, nu, lengthscale, outputscale, num_rff_features, seed=seed)
-    
-    # Run trial with ExpectedImprovement
-    EI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed)
-    EI_optimizer.run(num_iterations=num_iterations, acquisition_function_class=ExpectedImprovement)
-    EI_best_histories.append(EI_optimizer.get_best_history())
-    EI_cost_histories.append(EI_optimizer.get_cost_history())
+# Run trial with ExpectedImprovement
+EI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed, nu=0.5, lengthscale=1.0, outputscale=2.0)
+EI_optimizer.run(num_iterations=num_iterations, acquisition_function_class=ExpectedImprovement)
+EI_regret_history = EI_optimizer.get_regret_history(global_optimum)
 
-    for lmbda in lmbda_values:
-        print("lmbda:", lmbda)
+for lmbda in lmbda_values:
+    print("lmbda:", lmbda)
 
-        # Run trial with GittinsIndex for the current lambda
-        GI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed)
-        GI_optimizer.run(num_iterations=num_iterations, acquisition_function_class=GittinsIndex, lmbda=lmbda)
-        GI_best_histories[lmbda].append(GI_optimizer.get_best_history())
-        GI_cost_histories[lmbda].append(GI_optimizer.get_cost_history())
-        print()
+    # Run trial with GittinsIndex for the current lambda
+    GI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed, nu=0.5, lengthscale=1.0, outputscale=2.0)
+    GI_optimizer.run(num_iterations=num_iterations, acquisition_function_class=GittinsIndex, lmbda=lmbda)
+    GI_regret_history[str(lmbda)] = GI_optimizer.get_regret_history(global_optimum)
     print()
+print()
 
+print("EI regret history:", EI_regret_history)
+print("GI regret history:", GI_regret_history)
 
-import json
+# Get the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Open a file and write the string to it
-with open('EI best (Matern12).txt', 'w') as file:
-    file.write(json.dumps(EI_best_histories, indent=4))
-    
-with open('GI best (Matern12).txt', 'w') as file:
-    file.write(json.dumps(GI_best_histories, indent=4))
+# Define the results directory relative to the script directory
+results_dir = os.path.join(script_dir, 'results')
+
+# Create the results directory if it doesn't exist
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
+
+result_filename = f'trial_{seed}.toml'
+result_filepath = os.path.join(results_dir, result_filename)
+
+def save_results_to_file(data, filepath):
+    with open(filepath, 'w') as file:
+        toml.dump(data, file)  # or use 'json.dump(data, file, indent=4)'
+
+# Data to be saved
+result_data = {
+    'problem': {
+        'type': 'Matern',
+        'dim': dim,
+        'nu': nu,
+        'lengthscale': lengthscale,
+        'outputscale': outputscale
+    },
+    'trial': seed,
+    'global_optimum:': global_optimum,
+    'num_iterations': num_iterations,
+    'regret_history': {
+        'EI': EI_regret_history,
+        'Gittins': GI_regret_history
+    }
+}
+
+# Save to file
+save_results_to_file(result_data, result_filepath)

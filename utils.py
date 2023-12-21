@@ -5,6 +5,9 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.constraints import GreaterThan
 from botorch.models.transforms import Standardize
 
+import numpy as np
+from scipy.optimize import minimize
+
 def fit_gp_model(X, Y, nu=2.5, lengthscale=1.0, outputscale=1.0, Yvar=None):
     if X.ndim == 1:
         X = X.unsqueeze(dim=-1)
@@ -31,3 +34,44 @@ def fit_gp_model(X, Y, nu=2.5, lengthscale=1.0, outputscale=1.0, Yvar=None):
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_model(mll)
     return model
+
+
+def find_global_optimum(objective, dim, maximize, num_restarts=None, method='L-BFGS-B'):
+    """
+    Find the global optimum using multi-start optimization.
+
+    Parameters:
+    - objective (function): The objective function to optimize.
+    - dim (int): The number of dimensions
+    - maximize (bool): If True, maximizes the objective; otherwise, minimizes.
+    - num_restarts (int): Number of starting points for the optimization.
+
+    Returns:
+    - float: The global optimum found.
+    """
+
+    def scipy_objective(x):
+        x_tensor = torch.tensor(x, dtype=torch.float64)
+        return -objective(x_tensor) if maximize else objective(x_tensor)
+
+    scipy_bounds = list(zip(np.zeros(dim), np.ones(dim)))
+    
+    best_result = None
+
+    if num_restarts == None:
+        num_restarts = 200*dim
+
+    for _ in range(num_restarts):
+        # Generate a random initial guess within the bounds
+        initial_guess = torch.rand(dim)
+
+        # Run the optimization
+        result = minimize(scipy_objective, initial_guess, method=method, bounds=scipy_bounds)
+
+        # Update the best result if this result is better
+        if best_result is None or result.fun < best_result.fun:
+            best_result = result
+
+    global_optimum = scipy_objective(best_result.x).item()
+
+    return -global_optimum if maximize else global_optimum

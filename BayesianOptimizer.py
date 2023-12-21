@@ -4,6 +4,7 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
 from botorch.optim import optimize_acqf
+from utils import fit_gp_model
 
 class BayesianOptimizer:
     def __init__(self, objective, dim, maximize=True, seed=None, num_points=None, cost=None, nu=2.5, lengthscale=1.0, outputscale=1.0):
@@ -48,8 +49,8 @@ class BayesianOptimizer:
             acq_function=acq_function,
             bounds=self.bounds,
             q=1,
-            num_restarts=10 * self.dim,
-            raw_samples=1024,
+            num_restarts=10*self.dim,
+            raw_samples=1024*self.dim,
             options={'method': 'L-BFGS-B'},
         )
         new_value = self.objective(new_point)
@@ -68,7 +69,6 @@ class BayesianOptimizer:
             self.cumulative_cost += self.cost
 
         self.cost_history.append(self.cumulative_cost)
-
 
     def print_iteration_info(self, iteration):
         print(f"Iteration {iteration}, New point: {self.x[-1].squeeze().detach().numpy()}, New value: {self.y[-1].item()}")
@@ -101,3 +101,15 @@ class BayesianOptimizer:
 
     def get_cost_history(self):
         return self.cost_history
+
+    def get_regret_history(self, global_optimum):
+        """
+        Compute the regret history.
+
+        Parameters:
+        - global_optimum (float): The global optimum value of the objective function.
+
+        Returns:
+        - list: The regret history.
+        """
+        return [global_optimum - f if self.maximize else f - global_optimum for f in self.best_history]
