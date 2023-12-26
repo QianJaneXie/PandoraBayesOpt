@@ -83,20 +83,20 @@ class GittinsIndexFunction(Function):
 
         if cost_X.requires_grad:
             # Compute gradient only if cost_X is not a scalar
-            dcost_dX = grad(outputs=cost_X, inputs=X, grad_outputs=torch.ones_like(cost_X), retain_graph=True, allow_unused=True)[0]
+            dcost_dX = grad(outputs=cost_X, inputs=X, grad_outputs=torch.ones_like(cost_X), retain_graph=True, allow_unused=True)[0].clone()
         else:
             # If cost_X does not require grad, set its gradient to zero
             dcost_dX = torch.zeros_like(X)
-        
+
         # Check if gradients are None and handle accordingly
         if dmean_dX is None or dsigma_dX is None or dcost_dX is None:
             raise RuntimeError("Gradients could not be computed for one or more components.")
         
         # Compute the gradient of the Gittins acquisition function
         if maximize:
-            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX + (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
+            grad_X = grad_output.view(X.shape) * (dmean_dX + (phi(u).view(X.shape) * dsigma_dX - lmbda * dcost_dX) / Phi(u).view(X.shape))
         else:
-            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
+            grad_X = grad_output.view(X.shape) * (dmean_dX - (phi(u).view(X.shape) * dsigma_dX - lmbda * dcost_dX) / Phi(u).view(X.shape))
 
         return grad_X, None, None, None, None, None, None, None
 
@@ -168,7 +168,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         mean, sigma = self._mean_and_sigma(X)
 
         if callable(self.cost):
-            cost_X = self.cost(X)
+            cost_X = self.cost(X).view(mean.shape)
         else:
             cost_X = torch.tensor(1.0, dtype=X.dtype, device=X.device)
 
