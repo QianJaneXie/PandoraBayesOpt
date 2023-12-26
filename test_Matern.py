@@ -102,14 +102,14 @@ import toml  # or use 'import json'
 # Example Usage for 1D: 
 
 # Create the objective model
-dim = 1
+dim = 2
 nu = 0.5
-lengthscale = 1/16
-outputscale = 2.0
+lengthscale = 1.0
+outputscale = 1.0
 num_rff_features = 1280
 
 maximize = False
-num_iterations = 60  # Time budget
+num_iterations = 100  # Time budget
 
 lmbda_values = [0.05, 0.01, 0.005, 0.001]
 GI_best_history = {}
@@ -142,7 +142,7 @@ print("GI regret history:", GI_regret_history)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Define the results directory relative to the script directory
-results_dir = os.path.join(script_dir, 'results/Matern12/1D')
+results_dir = os.path.join(script_dir, 'results/Matern12/ls={}/{}D'.format(lengthscale, dim))
 
 # Create the results directory if it doesn't exist
 if not os.path.exists(results_dir):
