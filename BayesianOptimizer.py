@@ -3,6 +3,7 @@ from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
+from acquisition import GittinsIndex
 from botorch.optim import optimize_acqf
 from utils import fit_gp_model
 

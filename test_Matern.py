@@ -17,85 +17,10 @@ torch.set_default_dtype(torch.float64)
 torch.manual_seed(seed)
 
 
-from gpytorch.kernels import MaternKernel, ScaleKernel
-from botorch.utils.gp_sampling import get_deterministic_model, RandomFourierFeatures
-
-def create_objective_model(dim, nu, lengthscale, outputscale, num_rff_features, seed):
-    """
-    Create and return the objective model for sampling from a Matern kernel.
-
-    Parameters:
-    - dim (int): Number of dimensions of the sample space.
-    - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
-    - lengthscale (float): Lengthscale parameter for the Matern kernel.
-    - outputscale (float): Outputscale parameter for the Matern kernel.
-    - num_rff_features (int): Number of random Fourier features. E.g., 1280.
-    - seed (int): Random seed for reproducibility. E.g., 42.
-
-    Returns:
-    - objective_model: The model used to generate the objective function.
-    """
-
-    # Set up the Matern kernel
-    base_kernel = MaternKernel(nu=nu).double()
-    base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
-    scale_kernel = ScaleKernel(base_kernel).double()
-    scale_kernel.outputscale = torch.tensor([[outputscale]], dtype=torch.float64)
-
-    # Random Fourier Features
-    rff = RandomFourierFeatures(
-        kernel=scale_kernel,
-        input_dim=dim,
-        num_rff_features=num_rff_features
-    )
-
-    # Generate weights for the Random Fourier Features
-    weights = torch.randn(num_rff_features, dtype=torch.float64)
-    objective_model = get_deterministic_model(weights=[weights], bases=[rff])
-
-    return objective_model
-
-
-def create_objective_function(dim, lengthscale, outputscale, nu, num_rff_features, seed):
-    
-    """
-    Create and return the objective function sampled from a Matern kernel.
-    
-    Parameters:
-    - dim (int): Number of dimensions of the sample space.
-    - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
-    - lengthscale (float): Lengthscale parameter for the Matern kernel.
-    - outputscale (float): Outputscale parameter for the Matern kernel.
-    - num_rff_features (int): Number of random Fourier features. E.g., 1280.
-    - seed (int): Random seed for reproducibility. E.g., 42.
-
-    Returns:
-    - objective_model: The model used to generate the objective function.
-    """
-    
-    # Create the objective model inside the closure
-    objective_model = create_objective_model(dim, lengthscale, outputscale, nu, num_rff_features, seed)
-
-    # Define the objective function that only takes X
-    def objective(X):
-        """
-        Evaluate the objective function using the provided model.
-
-        Parameters:
-        - X (Tensor): Input points where the objective function should be evaluated.
-        - objective_model: The model used to evaluate the objective function.
-
-        Returns:
-        - Tensor: Evaluated mean of the model's posterior.
-        """
-        return objective_model.posterior(X).mean.detach()
-
-    return objective
-
+from utils import create_objective_function, find_global_optimum
 from botorch.acquisition import ExpectedImprovement
 from acquisition import GittinsIndex
 from bayesianoptimizer import BayesianOptimizer
-from utils import find_global_optimum
 
 import toml  # or use 'import json'
 
@@ -142,7 +67,7 @@ print("GI regret history:", GI_regret_history)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Define the results directory relative to the script directory
-results_dir = os.path.join(script_dir, 'results/Matern12/ls={}/{}D'.format(lengthscale, dim))
+results_dir = os.path.join(script_dir, 'results/Matern{}2/ls={}/{}D'.format(int(nu*2), lengthscale, dim))
 
 # Create the results directory if it doesn't exist
 if not os.path.exists(results_dir):

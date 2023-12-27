@@ -1,4 +1,7 @@
 import torch
+from gpytorch.kernels import MaternKernel, ScaleKernel
+from botorch.utils.gp_sampling import get_deterministic_model, RandomFourierFeatures
+
 from botorch.models import FixedNoiseGP
 from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
@@ -6,7 +9,81 @@ from gpytorch.constraints import GreaterThan
 from botorch.models.transforms import Standardize
 
 import numpy as np
-from scipy.optimize import basinhopping
+from scipy.optimize import differential_evolution
+
+def create_objective_model(dim, nu, lengthscale, outputscale, num_rff_features, seed):
+    """
+    Create and return the objective model for sampling from a Matern kernel.
+
+    Parameters:
+    - dim (int): Number of dimensions of the sample space.
+    - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
+    - lengthscale (float): Lengthscale parameter for the Matern kernel.
+    - outputscale (float): Outputscale parameter for the Matern kernel.
+    - num_rff_features (int): Number of random Fourier features. E.g., 1280.
+    - seed (int): Random seed for reproducibility. E.g., 42.
+
+    Returns:
+    - objective_model: The model used to generate the objective function.
+    """
+    # Set the seed for reproducibility
+    torch.manual_seed(seed)
+
+    # Set up the Matern kernel
+    base_kernel = MaternKernel(nu=nu).double()
+    base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
+    scale_kernel = ScaleKernel(base_kernel).double()
+    scale_kernel.outputscale = torch.tensor([[outputscale]], dtype=torch.float64)
+
+    # Random Fourier Features
+    rff = RandomFourierFeatures(
+        kernel=scale_kernel,
+        input_dim=dim,
+        num_rff_features=num_rff_features
+    )
+
+    # Generate weights for the Random Fourier Features
+    weights = torch.randn(num_rff_features, dtype=torch.float64)
+    objective_model = get_deterministic_model(weights=[weights], bases=[rff])
+
+    return objective_model
+
+def create_objective_function(dim, lengthscale, outputscale, nu, num_rff_features, seed):
+    
+    """
+    Create and return the objective function sampled from a Matern kernel.
+    
+    Parameters:
+    - dim (int): Number of dimensions of the sample space.
+    - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
+    - lengthscale (float): Lengthscale parameter for the Matern kernel.
+    - outputscale (float): Outputscale parameter for the Matern kernel.
+    - num_rff_features (int): Number of random Fourier features. E.g., 1280.
+    - seed (int): Random seed for reproducibility. E.g., 42.
+
+    Returns:
+    - objective_model: The model used to generate the objective function.
+    """
+    
+    # Create the objective model inside the closure
+    objective_model = create_objective_model(dim, lengthscale, outputscale, nu, num_rff_features, seed)
+
+    # Define the objective function that only takes X
+    def objective(X):
+        """
+        Evaluate the objective function using the provided model.
+
+        Parameters:
+        - X (Tensor): Input points where the objective function should be evaluated.
+        - objective_model: The model used to evaluate the objective function.
+
+        Returns:
+        - Tensor: Evaluated mean of the model's posterior.
+        """
+                
+        return objective_model.posterior(X).mean.detach()
+
+    return objective
 
 def fit_gp_model(X, Y, nu=2.5, lengthscale=1.0, outputscale=1.0, Yvar=None):
     if X.ndim == 1:
@@ -36,15 +113,14 @@ def fit_gp_model(X, Y, nu=2.5, lengthscale=1.0, outputscale=1.0, Yvar=None):
     return model
 
 
-def find_global_optimum(objective, dim, maximize, niter=None, method='L-BFGS-B'):
+def find_global_optimum(objective, dim, maximize):
     """
-    Find the global optimum using multi-start optimization.
+    Find the global optimum using differential evolution.
 
     Parameters:
     - objective (function): The objective function to optimize.
-    - dim (int): The number of dimensions
+    - dim (int): The number of dimensions.
     - maximize (bool): If True, maximizes the objective; otherwise, minimizes.
-    - niter (int): Number of iterations for the optimization.
 
     Returns:
     - float: The global optimum found.
@@ -55,25 +131,10 @@ def find_global_optimum(objective, dim, maximize, niter=None, method='L-BFGS-B')
         return -objective(x_tensor) if maximize else objective(x_tensor)
 
     scipy_bounds = list(zip(np.zeros(dim), np.ones(dim)))
-    
-    best_result = None
 
-    # Generate a random initial guess within the bounds
-    initial_guess = torch.rand(dim)
+    # Run differential evolution
+    result = differential_evolution(scipy_objective, scipy_bounds)
 
-    # Define the minimizer options
-    minimizer_kwargs = {"method": method, "bounds": list(zip(np.zeros(dim), np.ones(dim)))}
-
-    if niter == None:
-        niter = 200*dim
-
-    # Run basinhopping
-    result = basinhopping(scipy_objective, initial_guess, niter=niter, T=1.0, stepsize=0.5, minimizer_kwargs=minimizer_kwargs)
-
-    # Update the best result if this result is better
-    if best_result is None or result.fun < best_result.fun:
-        best_result = result
-
-    global_optimum = scipy_objective(best_result.x).item()
+    global_optimum = scipy_objective(result.x).item()
 
     return -global_optimum if maximize else global_optimum
