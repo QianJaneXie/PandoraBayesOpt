@@ -40,11 +40,32 @@ class BayesianOptimizer:
     def iterate(self, acquisition_function_class, **acqf_kwargs):
         model = fit_gp_model(self.x.detach(), self.y.detach(), nu=self.nu, lengthscale=self.lengthscale, outputscale=self.outputscale)
         acqf_args = {'model': model, 'maximize': self.maximize}
+        
         if acquisition_function_class == ExpectedImprovement:
-            acqf_args['best_f'] = self.best_f
+            acq_function = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
+
+        elif acquisition_function_class == GittinsIndex:
+            # Optimize EI first to get new_point_EI
+            BoTorch_EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
+            _, new_point_EI = optimize_acqf(
+                acq_function=BoTorch_EI,
+                bounds=self.bounds,
+                q=1,
+                num_restarts=20,
+                raw_samples=1024,
+                options={'method': 'L-BFGS-B'},
+            )
+
+            # Calculate lambda for Gittins Index
+            lmbda = new_point_EI.item() / 2
+
+            # Optimize Gittins Index with the calculated lambda
+            acq_function = GittinsIndex(model=model, lmbda=lmbda, maximize=self.maximize)
+
         else:
             acqf_args.update(**acqf_kwargs)
-        acq_function = acquisition_function_class(**acqf_args)
+            acq_function = acquisition_function_class(**acqf_args)
+            
         new_point, _ = optimize_acqf(
             acq_function=acq_function,
             bounds=self.bounds,
