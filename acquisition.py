@@ -94,10 +94,9 @@ class GittinsIndexFunction(Function):
         
         # Compute the gradient of the Gittins acquisition function
         if maximize:
-            grad_X = grad_output.view(X.shape) * (dmean_dX + (phi(u).view(X.shape) * dsigma_dX - lmbda * dcost_dX) / Phi(u).view(X.shape))
+            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX + (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
         else:
-            grad_X = grad_output.view(X.shape) * (dmean_dX - (phi(u).view(X.shape) * dsigma_dX - lmbda * dcost_dX) / Phi(u).view(X.shape))
-
+            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
         return grad_X, None, None, None, None, None, None, None
 
 class GittinsIndex(AnalyticAcquisitionFunction):
@@ -170,7 +169,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         if callable(self.cost):
             cost_X = self.cost(X).view(mean.shape)
         else:
-            cost_X = torch.tensor(1.0, dtype=X.dtype, device=X.device)
+            cost_X = torch.ones_like(mean)
 
         gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X)
 
