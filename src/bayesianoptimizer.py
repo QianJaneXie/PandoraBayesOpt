@@ -3,9 +3,9 @@ from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
-from acquisition import GittinsIndex
+from src.acquisition import GittinsIndex, ExpectedImprovementWithCost
 from botorch.optim import optimize_acqf
-from utils import fit_gp_model
+from src.utils import fit_gp_model
 
 class BayesianOptimizer:
     def __init__(self, objective, dim, maximize=True, seed=None, num_points=None, cost=None, nu=2.5, lengthscale=1.0, outputscale=1.0):
@@ -38,35 +38,52 @@ class BayesianOptimizer:
         self.best_f = self.y.max().item() if self.maximize else self.y.min().item()
         self.best_history.append(self.best_f)
 
-    def iterate(self, acquisition_function_class, **acqf_kwargs):
+    def iterate(self, acquisition_function_class, lmbda=None, **acqf_kwargs):
         model = fit_gp_model(self.x.detach(), self.y.detach(), nu=self.nu, lengthscale=self.lengthscale, outputscale=self.outputscale)
         acqf_args = {'model': model, 'maximize': self.maximize}
         
         if acquisition_function_class == ExpectedImprovement:
-            acq_function = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
+            acqf_args['best_f'] = self.best_f
+
+        elif acquisition_function_class == ExpectedImprovementWithCost:
+            acqf_args['best_f'] = self.best_f
+            acqf_args['cost'] = self.cost
 
         elif acquisition_function_class == GittinsIndex:
-            # Optimize EI first to get new_point_EI
-            BoTorch_EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
-            _, new_point_EI = optimize_acqf(
-                acq_function=BoTorch_EI,
-                bounds=self.bounds,
-                q=1,
-                num_restarts=20,
-                raw_samples=1024,
-                options={'method': 'L-BFGS-B'},
-            )
+            if lmbda is None:
+                if callable(self.cost):
+                    # Optimize EIpu first to get new_point_EIpu
+                    EIpu = ExpectedImprovementWithCost(model=model, best_f=self.best_f, maximize=self.maximize, cost=self.cost)
+                    _, new_point_EIpu = optimize_acqf(
+                        acq_function=EIpu,
+                        bounds=self.bounds,
+                        q=1,
+                        num_restarts=20,
+                        raw_samples=1024,
+                        options={'method': 'L-BFGS-B'},
+                    )
+                    lmbda = new_point_EIpu.item() / 2
+                else:
+                    # Optimize EI first to get new_point_EI
+                    EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
+                    _, new_point_EI = optimize_acqf(
+                        acq_function=EI,
+                        bounds=self.bounds,
+                        q=1,
+                        num_restarts=20,
+                        raw_samples=1024,
+                        options={'method': 'L-BFGS-B'},
+                    )
+                    lmbda = new_point_EI.item() / 2
 
-            # Calculate lambda for Gittins Index
-            lmbda = new_point_EI.item() / 2
-
-            # Optimize Gittins Index with the calculated lambda
-            acq_function = GittinsIndex(model=model, lmbda=lmbda, maximize=self.maximize)
+            acqf_args['lmbda'] = lmbda
+            acqf_args['cost'] = self.cost
 
         else:
             acqf_args.update(**acqf_kwargs)
-            acq_function = acquisition_function_class(**acqf_args)
             
+        acq_function = acquisition_function_class(**acqf_args)
+
         new_point, _ = optimize_acqf(
             acq_function=acq_function,
             bounds=self.bounds,
@@ -98,16 +115,16 @@ class BayesianOptimizer:
         print("Cumulative cost:", self.cumulative_cost)
         print()
 
-    def run(self, num_iterations, acquisition_function_class, **acqf_kwargs):
+    def run(self, num_iterations, acquisition_function_class, lmbda=None, **acqf_kwargs):
         for i in range(num_iterations):
-            self.iterate(acquisition_function_class, **acqf_kwargs)
-            self.print_iteration_info(i)
+            self.iterate(acquisition_function_class, lmbda=lmbda, **acqf_kwargs)
+            # self.print_iteration_info(i)
 
-    def run_until_budget(self, budget, acquisition_function_class, **acqf_kwargs):
+    def run_until_budget(self, budget, acquisition_function_class, lmbda=None, **acqf_kwargs):
         i = 0
         while self.cumulative_cost < budget:
-            self.iterate(acquisition_function_class, **acqf_kwargs)
-            self.print_iteration_info(i)
+            self.iterate(acquisition_function_class, lmbda=lmbda, **acqf_kwargs)
+            # self.print_iteration_info(i)
             if self.cumulative_cost >= budget:
                 break
             i += 1

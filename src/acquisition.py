@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from torch.autograd import (Function, grad)
-from botorch.acquisition import AnalyticAcquisitionFunction
+from botorch.acquisition import AnalyticAcquisitionFunction, ExpectedImprovement
 from botorch.models.model import Model
 from botorch.acquisition.analytic import (_scaled_improvement, _ei_helper)
 from botorch.acquisition.objective import PosteriorTransform
@@ -97,6 +97,7 @@ class GittinsIndexFunction(Function):
             grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX + (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
         else:
             grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
+
         return grad_X, None, None, None, None, None, None, None
 
 class GittinsIndex(AnalyticAcquisitionFunction):
@@ -175,3 +176,19 @@ class GittinsIndex(AnalyticAcquisitionFunction):
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value
+
+class ExpectedImprovementWithCost(AnalyticAcquisitionFunction):
+    """
+    This is the acquisition function EI(x) / c(x) ^ alpha, where alpha is a decay
+    factor that reduces or increases the emphasis of the cost function c(x).
+    """
+
+    def __init__(self, model, best_f, maximize, cost, alpha=1):
+        super().__init__(model=model)
+        self.model = model
+        self.cost = cost
+        self.ei = ExpectedImprovement(model=model, best_f=best_f, maximize=maximize)
+        self.alpha = alpha
+
+    def forward(self, X):
+        return self.ei(X) / torch.pow(self.cost(X).view(self.ei(X).shape), self.alpha)
