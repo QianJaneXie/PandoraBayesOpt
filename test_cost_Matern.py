@@ -2,7 +2,7 @@
 # coding: utf-8
 
 import os
-seed = int(os.getenv('MY_SEED', '47'))  # Default to 42 if MY_SEED is not set
+seed = int(os.getenv('MY_SEED', '42'))  # Default to 42 if MY_SEED is not set
 print(seed)
 
 import torch
