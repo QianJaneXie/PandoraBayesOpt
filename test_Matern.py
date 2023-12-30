@@ -16,10 +16,10 @@ torch.set_default_dtype(torch.float64)
 # Set the seed for reproducibility
 torch.manual_seed(seed)
 
-from utils import create_objective_function, find_global_optimum
+from src.utils import create_objective_function, find_global_optimum
 from botorch.acquisition import ExpectedImprovement
-from acquisition import GittinsIndex
-from bayesianoptimizer import BayesianOptimizer
+from src.acquisition import GittinsIndex
+from src.bayesianoptimizer import BayesianOptimizer
 
 import toml  # or use 'import json'
 
