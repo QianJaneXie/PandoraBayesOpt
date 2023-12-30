@@ -16,9 +16,9 @@ class BayesianOptimizer:
         self.bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         self.best_f = None
         self.best_history = []
-        self.cost = cost if cost is not None else 1
-        self.cumulative_cost = 0
-        self.cost_history = [0]
+        self.cost = cost if cost is not None else 1.0
+        self.cumulative_cost = 0.0
+        self.cost_history = [0.0]
         torch.set_default_dtype(torch.float64)
         if seed is not None:
             torch.manual_seed(seed)

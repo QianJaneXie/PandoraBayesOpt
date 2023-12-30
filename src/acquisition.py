@@ -148,7 +148,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         self.maximize = maximize
         self.bound = bound
         self.eps = eps
-        self.cost = cost if cost is not None else 1
+        self.cost = cost if cost is not None else 1.0
       
         
     @t_batch_mode_transform(expected_q=1)
