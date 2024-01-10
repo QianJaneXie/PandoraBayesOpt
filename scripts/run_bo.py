@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from botorch.acquisition import AcquisitionFunction
-from utils import fit_gp_model
+from pandora_bayesopt.utils import fit_gp_model
 
 
 # TODO: Replace cost with a cost_fn. Gittins will need to be updated to take in
