@@ -5,7 +5,7 @@ requirements = [
     "scipy>=1.3",
     "torch>=2.1.1",
     "gpytorch>=1.11",
-    "botorch>=0.8.5",
+    "botorch>=0.8",
     "matplotlib>=3.7",
     "tqdm>=4.0",
 ]
