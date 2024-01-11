@@ -7,6 +7,8 @@ print(seed)
 
 import torch
 
+import json # temporary
+
 # use a GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -16,12 +18,10 @@ torch.set_default_dtype(torch.float64)
 # Set the seed for reproducibility
 torch.manual_seed(seed)
 
-from src.utils import create_objective_function, find_global_optimum
+from pandora_bayesopt.utils import create_objective_function, find_global_optimum
 from botorch.acquisition import ExpectedImprovement
-from src.acquisition import GittinsIndex
-from src.bayesianoptimizer import BayesianOptimizer
-
-import toml  # or use 'import json'
+from pandora_bayesopt.acquisition import GittinsIndex
+from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
 # Example Usage for 1D: 
 
@@ -107,7 +107,7 @@ result_filepath = os.path.join(results_dir, result_filename)
 
 def save_results_to_file(data, filepath):
     with open(filepath, 'w') as file:
-        toml.dump(data, file)  # or use 'json.dump(data, file, indent=4)'
+        json.dump(data, file, indent=4)
 
 # Data to be saved
 result_data = {

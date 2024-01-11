@@ -3,9 +3,9 @@ from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
-from src.acquisition import GittinsIndex, ExpectedImprovementWithCost
+from .acquisition import GittinsIndex, ExpectedImprovementWithCost
 from botorch.optim import optimize_acqf
-from src.utils import fit_gp_model
+from .utils import fit_gp_model
 
 class BayesianOptimizer:
     def __init__(self, objective, dim, maximize=True, seed=None, num_points=None, cost=None, nu=2.5, lengthscale=1.0, outputscale=1.0):

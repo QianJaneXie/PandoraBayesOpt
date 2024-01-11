@@ -8,12 +8,11 @@ import os
 import time
 import torch
 import warnings
-import toml
 
 from abc import ABC, abstractmethod
 
 from botorch.acquisition import AnalyticAcquisitionFunction, ExpectedImprovement
-from src.acquisition import GittinsIndex
+from pandora_bayesopt.acquisition import GittinsIndex
 from botorch.fit import fit_gpytorch_mll
 from botorch.models import SingleTaskGP
 from botorch.models.transforms import Log
@@ -22,6 +21,8 @@ from botorch.utils import standardize
 from botorch.utils.sampling import draw_sobol_samples
 
 from gpytorch.mlls import ExactMarginalLogLikelihood
+
+import json # temporary
 
 # import matplotlib.pyplot as plt
 # get_ipython().run_line_magic('matplotlib', 'inline')
@@ -53,7 +54,7 @@ result_filepath = os.path.join(results_dir, result_filename)
 
 def save_results_to_file(data, filepath):
     with open(filepath, 'w') as file:
-        toml.dump(data, file)  # or use 'json.dump(data, file, indent=4)'
+        json.dump(data, file, indent=4)
 
 
 # In[3]:
