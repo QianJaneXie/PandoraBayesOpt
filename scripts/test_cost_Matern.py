@@ -37,7 +37,7 @@ budget = 80  # Cost budget
 
 import time
 start = time.time()
-objective = create_objective_function(dim, nu, lengthscale, outputscale, num_rff_features, seed=seed)
+objective = create_objective_function(dim, nu, lengthscale, outputscale, num_rff_features)
 end = time.time()
 print("creating objective time:", end-start)
 
@@ -53,7 +53,7 @@ def cost_function(x):
 # Run trial with ExpectedImprovement
 print("EI")
 start = time.time()
-EI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
+EI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
 EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
 EI_cost_history = EI_optimizer.get_cost_history()
 EI_best_history = EI_optimizer.get_best_history()
@@ -68,7 +68,7 @@ print()
 # Run trial with ExpectedImprovementWithCost
 print("EIpu")
 start = time.time()
-EIpu_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
+EIpu_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
 EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost)
 EIpu_cost_history = EIpu_optimizer.get_cost_history()
 EIpu_best_history = EIpu_optimizer.get_best_history()
@@ -90,7 +90,7 @@ GI_regret_history = {}
 for lmbda in lmbda_values:
     print("lmbda:", lmbda)
     # Run trial with GittinsIndex for the current lambda
-    GI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
+    GI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
     GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex, lmbda=lmbda)
     GI_cost_history[str(lmbda)] = GI_optimizer.get_cost_history()
     GI_best_history[str(lmbda)] = GI_optimizer.get_best_history()
@@ -103,7 +103,7 @@ print()
 # Run trial with Hyperparameter-free GittinsIndex
 print("Hyperparameter-free GI")
 start = time.time()
-GI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, seed=seed, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
+GI_optimizer = BayesianOptimizer(objective=objective, dim=dim, maximize=maximize, cost=cost_function, nu=nu, lengthscale=lengthscale, outputscale=outputscale)
 GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex)
 GI_cost_history["EIpu_max/2"] = GI_optimizer.get_cost_history()
 GI_best_history["EIpu_max/2"] = GI_optimizer.get_best_history()
