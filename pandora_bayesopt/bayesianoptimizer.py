@@ -8,7 +8,7 @@ from botorch.optim import optimize_acqf
 from .utils import fit_gp_model
 
 class BayesianOptimizer:
-    def __init__(self, objective, dim, maximize=True, seed=None, num_points=None, cost=None, nu=2.5, lengthscale=1.0, outputscale=1.0):
+    def __init__(self, objective, dim, maximize=True, num_points=None, cost=None, nu=2.5):
         self.objective = objective
         self.maximize = maximize
         self.dim = dim
@@ -19,15 +19,13 @@ class BayesianOptimizer:
         self.cost = cost if cost is not None else 1.0
         self.cumulative_cost = 0.0
         self.cost_history = [0.0]
-        torch.set_default_dtype(torch.float64)
-        if seed is not None:
-            torch.manual_seed(seed)
+        self.current_lmbda = None
+        self.need_lmbda_update = True
+        self.lmbda_history = []
         self.initialize_points(seed)
         
         # GP model parameters
         self.nu = nu
-        self.lengthscale = lengthscale
-        self.outputscale = outputscale
 
     def initialize_points(self, seed):
         self.x = draw_sobol_samples(bounds=self.bounds, n=1, q=self.num_points, seed=seed).squeeze(0).requires_grad_(True)
@@ -39,7 +37,7 @@ class BayesianOptimizer:
         self.best_history.append(self.best_f)
 
     def iterate(self, acquisition_function_class, lmbda=None, **acqf_kwargs):
-        model = fit_gp_model(self.x.detach(), self.y.detach(), nu=self.nu, lengthscale=self.lengthscale, outputscale=self.outputscale)
+        model = fit_gp_model(self.x.detach(), self.y.detach(), nu=self.nu)
         acqf_args = {'model': model, 'maximize': self.maximize}
         
         if acquisition_function_class == ExpectedImprovement:
@@ -51,32 +49,36 @@ class BayesianOptimizer:
 
         elif acquisition_function_class == GittinsIndex:
             if lmbda is None:
-                if callable(self.cost):
-                    # Optimize EIpu first to get new_point_EIpu
-                    EIpu = ExpectedImprovementWithCost(model=model, best_f=self.best_f, maximize=self.maximize, cost=self.cost)
-                    _, new_point_EIpu = optimize_acqf(
-                        acq_function=EIpu,
-                        bounds=self.bounds,
-                        q=1,
-                        num_restarts=20,
-                        raw_samples=1024,
-                        options={'method': 'L-BFGS-B'},
-                    )
-                    lmbda = new_point_EIpu.item() / 2
-                else:
-                    # Optimize EI first to get new_point_EI
-                    EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
-                    _, new_point_EI = optimize_acqf(
-                        acq_function=EI,
-                        bounds=self.bounds,
-                        q=1,
-                        num_restarts=20,
-                        raw_samples=1024,
-                        options={'method': 'L-BFGS-B'},
-                    )
-                    lmbda = new_point_EI.item() / 2
-
-            acqf_args['lmbda'] = lmbda
+                if self.need_lmbda_update:
+                    if callable(self.cost):
+                        # Optimize EIpu first to get new_point_EIpu
+                        EIpu = ExpectedImprovementWithCost(model=model, best_f=self.best_f, maximize=self.maximize, cost=self.cost)
+                        _, new_point_EIpu = optimize_acqf(
+                            acq_function=EIpu,
+                            bounds=self.bounds,
+                            q=1,
+                            num_restarts=20,
+                            raw_samples=1024,
+                            options={'method': 'L-BFGS-B'},
+                        )
+                        self.current_lmbda = new_point_EIpu.item()
+                    else:
+                        # Optimize EI first to get new_point_EI
+                        EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
+                        _, new_point_EI = optimize_acqf(
+                            acq_function=EI,
+                            bounds=self.bounds,
+                            q=1,
+                            num_restarts=20,
+                            raw_samples=1024,
+                            options={'method': 'L-BFGS-B'},
+                        )
+                        self.current_lmbda = new_point_EI.item() / 2
+                    self.need_lmbda_update = False  # Reset the flag
+                acqf_args['lmbda'] = self.current_lmbda
+                self.lmbda_history.append(self.current_lmbda)
+            else: 
+                acqf_args['lmbda'] = lmbda
             acqf_args['cost'] = self.cost
 
         else:
@@ -97,6 +99,12 @@ class BayesianOptimizer:
         self.y = torch.cat((self.y, new_value))
         self.update_best()
         self.update_cost(new_point)
+
+        # Check if lmbda needs to be updated in the next iteration
+        if acquisition_function_class == GittinsIndex:
+            if (self.maximize and new_point_acq.item() < self.best_f) or (not self.maximize and -new_point_acq.item() > self.best_f):
+                self.need_lmbda_update = True
+
 
     def update_cost(self, new_point):
         if callable(self.cost):
@@ -152,3 +160,6 @@ class BayesianOptimizer:
         - list: The regret history.
         """
         return [global_optimum - f if self.maximize else f - global_optimum for f in self.best_history]
+
+    def get_lmbda_history(self):
+        return self.lmbda_history
