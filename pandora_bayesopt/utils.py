@@ -2,11 +2,10 @@ import torch
 from gpytorch.kernels import MaternKernel, ScaleKernel
 from botorch.utils.gp_sampling import get_deterministic_model, RandomFourierFeatures
 
-from botorch.models import FixedNoiseGP
+from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from gpytorch.constraints import GreaterThan
-from botorch.models.transforms import Standardize
+from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 
 import numpy as np
 from scipy.optimize import differential_evolution
@@ -81,27 +80,24 @@ def create_objective_function(dim, lengthscale, outputscale, nu, num_rff_feature
         - Tensor: Evaluated mean of the model's posterior.
         """
                 
-        return objective_model.posterior(X).mean.detach()
+        return objective_model.posterior(X).mean.detach().squeeze(-1)
 
     return objective
 
-def fit_gp_model(X, Y, nu=2.5, Yvar=None):
+def fit_gp_model(X, Y, kernel, Yvar=None, noise_level=1e-4):
+    # Ensure X is a 2D tensor [num_data, num_features]
     if X.ndim == 1:
         X = X.unsqueeze(dim=-1)
+    
+    # Ensure Y is a 2D tensor [num_data, 1]
     if Y.ndim == 1:
         Y = Y.unsqueeze(dim=-1)
+        
     if Yvar is None:
-        Yvar = torch.ones(Y.shape) * 1e-4
+        Yvar = torch.ones(len(Y)) * noise_level
+        
+    model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = FixedNoiseGaussianLikelihood(noise=Yvar), covar_module=kernel)
 
-    model = FixedNoiseGP(X, Y, Yvar, outcome_transform=Standardize(m=Y.shape[-1]))
-    
-    # Set the nu parameter for the Matern kernel: 1/2, 3/2, or 5/2
-    model.covar_module.base_kernel.nu = nu
-
-    # Enforce positive constraints
-    model.covar_module.base_kernel.raw_lengthscale_constraint = GreaterThan(1e-5)
-    model.covar_module.raw_outputscale_constraint = GreaterThan(1e-5)
-    
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_model(mll)
     return model
