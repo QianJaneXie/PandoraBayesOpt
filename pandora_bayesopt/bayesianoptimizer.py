@@ -8,11 +8,10 @@ from botorch.optim import optimize_acqf
 from .utils import fit_gp_model
 
 class BayesianOptimizer:
-    def __init__(self, objective, dim, maximize=True, num_points=None, cost=None, nu=2.5):
+    def __init__(self, objective, dim, maximize, initial_points, kernel, cost=None):
         self.objective = objective
         self.maximize = maximize
         self.dim = dim
-        self.num_points = 2 * dim + 1 if num_points is None else num_points
         self.bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         self.best_f = None
         self.best_history = []
@@ -22,14 +21,14 @@ class BayesianOptimizer:
         self.current_lmbda = None
         self.need_lmbda_update = True
         self.lmbda_history = []
-        self.initialize_points(seed)
+        self.initialize_points(initial_points)
         
         # GP model parameters
-        self.nu = nu
+        self.kernel = kernel
 
-    def initialize_points(self, seed):
-        self.x = draw_sobol_samples(bounds=self.bounds, n=1, q=self.num_points, seed=seed).squeeze(0).requires_grad_(True)
-        self.y = self.objective(self.x)
+    def initialize_points(self, initial_points):
+        self.x = initial_points
+        self.y = self.objective(initial_points)
         self.update_best()
 
     def update_best(self):
@@ -37,7 +36,7 @@ class BayesianOptimizer:
         self.best_history.append(self.best_f)
 
     def iterate(self, acquisition_function_class, lmbda=None, **acqf_kwargs):
-        model = fit_gp_model(self.x.detach(), self.y.detach(), nu=self.nu)
+        model = fit_gp_model(self.x.detach(), self.y.detach(), kernel=self.kernel)
         acqf_args = {'model': model, 'maximize': self.maximize}
         
         if acquisition_function_class == ExpectedImprovement:

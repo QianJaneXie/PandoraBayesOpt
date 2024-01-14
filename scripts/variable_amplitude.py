@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # BayesOPT Example for showing Gittins >> EIpu
+# Extension of the numerical examples presented in Theorem 1 of Raul and Peter's paper which aims to show the limitation of EIpu and EI. The experiment extends the scope from Pandora's box (discrete finite points) to Bayesian optimization (continuous domain) and compares Gittins with EIpu/EI.
+
+import torch
+from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum
+from gpytorch.kernels import MaternKernel
+from pandora_bayesopt.kernel import VariableAmplitudeKernel
+from botorch.acquisition import ExpectedImprovement
+from pandora_bayesopt.acquisition import ExpectedImprovementWithCost, GittinsIndex
+from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
+
+import matplotlib.pyplot as plt
+
+# use a GPU if available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Set default tensor type to float64
+torch.set_default_dtype(torch.float64)
+
+
+# ## Define the amplitude function and the cost function 
+# The continuous amplitude function and the continuous cost function are constructed based on the variances and costs of the discrete finite points provided in the original example
+
+# Define typical small values for epsilon and delta, and a moderate value for K
+epsilon = 0.1
+delta = 0.05
+K = 100  # Number of points excluding the central point
+
+# Define the functions for the amplitude and the cost
+def amplitude_function(x):
+    width = 1.0 / K  # Width of the bump to cover only the central point
+    amplitude = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * (1 - epsilon**2) + epsilon**2
+    return amplitude.squeeze(-1)
+
+def cost_function(x):
+    width = 1.0 / K  # Width of the bump to cover only the central point
+    peak_height = 1 + delta - epsilon
+    cost = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * peak_height + epsilon
+    return cost.squeeze(-1)
+
+# ## Define the objective function
+# The objective functions are constructed as sample paths drawn from the Matern kernel multiplied by the amplitude function
+
+# Create the objective model
+dim = 1
+nu = 0.5
+lengthscale = 0.01
+outputscale = 1.0
+num_rff_features = 1280
+seed = 42
+torch.manual_seed(seed)
+
+def objective_function(x):
+    Matern_sample = create_objective_function(dim, nu, lengthscale, outputscale, num_rff_features, seed)
+    return Matern_sample(x) * amplitude_function(x)
+
+
+# ## Test performance of different policies
+
+maximize = True
+dim = 1
+budget = 3.0
+
+global_optimum = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
+print("global_optimum", global_optimum)
+
+init_x = torch.zeros(dim).unsqueeze(1)
+
+# Set up the kernel
+base_kernel = MaternKernel(nu=nu).double()
+base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
+kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
+
+# ### Test EI policy
+
+EI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
+EI_cost_history = EI_optimizer.get_cost_history()
+EI_best_history = EI_optimizer.get_best_history()
+EI_regret_history = EI_optimizer.get_regret_history(global_optimum)
+
+print("EI cost history:", EI_cost_history)
+print("EI regret history:", EI_regret_history)
+print()
