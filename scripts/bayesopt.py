@@ -12,3 +12,4 @@ wandb.init()
 
 wandb.log({"regret": regret})
 wandb.log({"time": time})
+wandb.finish()
