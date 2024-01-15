@@ -2,14 +2,13 @@ import wandb
 
 def run_bayesopt_experiment(config):
     print(config)
-    regret = config['dim']
-    time = config['length_scale']
-    return (regret,time)
+    acquisition_function = config['acquisition_function']
+    print(acquisition_function)
+    return acquisition_function
 
 wandb.init()
 
-(regret,time) = run_bayesopt_experiment(wandb.config)
+acquisition_function = run_bayesopt_experiment(wandb.config)
 
-wandb.log({"regret": regret})
-wandb.log({"time": time})
+wandb.log({"acquisition_function": acquisition_function})
 wandb.finish()

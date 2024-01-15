@@ -13,6 +13,7 @@ from pandora_bayesopt.acquisition import ExpectedImprovementWithCost, GittinsInd
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
 import matplotlib.pyplot as plt
+import wandb
 
 # use a GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,105 +42,103 @@ def cost_function(x):
     cost = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * peak_height + epsilon
     return cost.squeeze(-1)
 
-# ## Define the objective function
-# The objective functions are constructed as sample paths drawn from the Matern kernel multiplied by the amplitude function
+def run_bayesopt_experiment(config):
+    print(config)
 
-# Create the objective model
-dim = 1
-nu = 0.5
-lengthscale = 0.01
-outputscale = 1.0
-num_rff_features = 1280
-seed = 42
-torch.manual_seed(seed)
+    dim = config['dim']
+    if config['kernel'] == 'matern12':
+        nu = 0.5
+    elif config['kernel'] == 'matern32':
+        nu = 1.5
+    elif config['kernel'] == 'matern52':
+        nu = 2.5  
+    lengthscale = config['lengthscale']
+    outputscale = config['amplitude']
+    num_rff_features = config['num_rff_features']
+    seed = config['seed']
+    torch.manual_seed(seed)
 
-def objective_function(x):
-    Matern_sample = create_objective_function(dim, nu, lengthscale, outputscale, num_rff_features, seed)
-    return Matern_sample(x) * amplitude_function(x)
+    # Create the objective function
+    def objective_function(x):
+        matern_sample = create_objective_function(
+        seed=seed, 
+        dim=dim, 
+        nu=nu, 
+        lengthscale=lengthscale,
+        outputscale=outputscale,
+        num_rff_features=num_rff_features
+        )
+        return matern_sample(x) * amplitude_function(x)
 
+    # Find the global optimum
+    maximize = True
 
-# ## Test performance of different policies
+    global_optimum = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
+    print("global_optimum", global_optimum)
+    print()
 
-maximize = True
-dim = 1
-budget = 3.0
+    # Set up the kernel
+    base_kernel = MaternKernel(nu=nu).double()
+    base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
+    kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
 
-global_optimum = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
-print("global_optimum", global_optimum)
-print()
+    # Test performance of different policies
+    budget = config['budget']
+    init_x = torch.zeros(dim).unsqueeze(1)
+    policy = config['policy']
+    print("policy:", policy)
+    Optimizer = BayesianOptimizer(
+        objective=objective_function, 
+        dim=dim, 
+        maximize=maximize, 
+        initial_points=init_x, 
+        kernel=kernel, 
+        cost=cost_function
+    )
+    if policy == 'EI':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=ExpectedImprovement
+        )
+    elif policy == 'EIpu':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=ExpectedImprovementWithCost
+        )
+    elif policy == 'EIcool':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=ExpectedImprovementWithCost,
+            cost_cooling = True
+        )
+    elif policy == 'GIlmbda':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            lmbda = 0.0001
+        )
+    elif policy == 'GIfree':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=GittinsIndex
+        )
+    cost_history = Optimizer.get_cost_history()
+    best_history = Optimizer.get_best_history()
+    regret_history = Optimizer.get_regret_history(global_optimum)
 
-init_x = torch.zeros(dim).unsqueeze(1)
+    print("Cost history:", cost_history)
+    print("Best history:", best_history)
+    print("Regret history:", regret_history)
+    print()
 
-# Set up the kernel
-base_kernel = MaternKernel(nu=nu).double()
-base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
-kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
+    return (global_optimum, cost_history, best_history, regret_history)
 
-# # ### Test EI policy
-# print("EI")
-# EI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-# EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
-# EI_cost_history = EI_optimizer.get_cost_history()
-# EI_best_history = EI_optimizer.get_best_history()
-# EI_regret_history = EI_optimizer.get_regret_history(global_optimum)
-
-# print("EI cost history:", EI_cost_history)
-# print("EI best history:", EI_best_history)
-# print("EI regret history:", EI_regret_history)
-# print()
-
-
-# # Test EI per unit cost policy
-# print("EIpu")
-# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-# EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost)
-# EIpu_cost_history = EIpu_optimizer.get_cost_history()
-# EIpu_best_history = EIpu_optimizer.get_best_history()
-# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
-
-# print("EIpu cost history:", EIpu_cost_history)
-# print("EIpu best history:", EIpu_best_history)
-# print("EIpu regret history:", EIpu_regret_history)
-# print()
-
-
-# # Test EI with cost-cooling policy
-# print("EIpu")
-# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-# EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost, cost_cooling=True)
-# EIpu_cost_history = EIpu_optimizer.get_cost_history()
-# EIpu_best_history = EIpu_optimizer.get_best_history()
-# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
-
-# print("EIpu cost history:", EIpu_cost_history)
-# print("EIpu best history:", EIpu_best_history)
-# print("EIpu regret history:", EIpu_regret_history)
-# print()
-
-# # Test Hyperparameter-free Gittins policy
-# print("Hyperparameter-free GI")
-# GI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-# GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex)
-# GI_cost_history = GI_optimizer.get_cost_history()
-# GI_best_history = GI_optimizer.get_best_history()
-# GI_regret_history = GI_optimizer.get_regret_history(global_optimum)
-# GI_lmbda_history = GI_optimizer.get_lmbda_history()
-
-# print("GI cost history:", GI_cost_history)
-# print("GI best history:", GI_best_history)
-# print("GI regret history:", GI_regret_history)
-# print("GI lmbda history:", GI_lmbda_history)
-# print()
-
-# Test Gittins policy with small constant lambda
-print("GI with small constant lambda")
-GI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex, lmbda=0.0001)
-GI_cost_history = GI_optimizer.get_cost_history()
-GI_best_history = GI_optimizer.get_best_history()
-GI_regret_history = GI_optimizer.get_regret_history(global_optimum)
-
-print("GI cost history:", GI_cost_history)
-print("GI best history:", GI_best_history)
-print("GI regret history:", GI_regret_history)
-print()
+wandb.init()
+(global_optimum, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+wandb.log({"global_optimum": global_optimum})
+wandb.log({
+    "cost_history": cost_history,
+    "best_history": best_history,
+    "regret_history": regret_history
+})
+wandb.finish()

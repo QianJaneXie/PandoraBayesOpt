@@ -10,21 +10,22 @@ from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 import numpy as np
 from scipy.optimize import differential_evolution
 
-def create_objective_model(dim, nu, lengthscale, outputscale, num_rff_features, seed):
+def create_objective_model(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
     """
     Create and return the objective model for sampling from a Matern kernel.
 
     Parameters:
-    - dim (int): Number of dimensions of the sample space.
-    - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
-    - lengthscale (float): Lengthscale parameter for the Matern kernel.
-    - outputscale (float): Outputscale parameter for the Matern kernel.
-    - num_rff_features (int): Number of random Fourier features. E.g., 1280.
     - seed (int): Random seed for reproducibility. E.g., 42.
+    - dim (int): Number of dimensions of the sample space.
+    - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5, 1.5, 2.5.
+    - lengthscale (float): Lengthscale parameter for the Matern kernel.
+    - outputscale (float): Outputscale parameter for the Matern kernel. E.g., 1.0.
+    - num_rff_features (int): Number of random Fourier features. E.g., 1280.
 
     Returns:
     - objective_model: The model used to generate the objective function.
     """
+
     # Set the seed for reproducibility
     torch.manual_seed(seed)
 
@@ -47,25 +48,32 @@ def create_objective_model(dim, nu, lengthscale, outputscale, num_rff_features, 
 
     return objective_model
 
-def create_objective_function(dim, lengthscale, outputscale, nu, num_rff_features, seed):
+def create_objective_function(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
     
     """
     Create and return the objective function sampled from a Matern kernel.
     
     Parameters:
+    - seed (int): Random seed for reproducibility. E.g., 42.
     - dim (int): Number of dimensions of the sample space.
     - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
     - lengthscale (float): Lengthscale parameter for the Matern kernel.
-    - outputscale (float): Outputscale parameter for the Matern kernel.
+    - outputscale (float): Outputscale parameter for the Matern kernel. E.g., 1.0.
     - num_rff_features (int): Number of random Fourier features. E.g., 1280.
-    - seed (int): Random seed for reproducibility. E.g., 42.
 
     Returns:
     - objective_model: The model used to generate the objective function.
     """
     
     # Create the objective model inside the closure
-    objective_model = create_objective_model(dim, lengthscale, outputscale, nu, num_rff_features, seed)
+    objective_model = create_objective_model(
+        seed=seed, 
+        dim=dim, 
+        nu=nu, 
+        lengthscale=lengthscale,
+        outputscale=outputscale, 
+        num_rff_features=num_rff_features
+    )
 
     # Define the objective function that only takes X
     def objective(X):

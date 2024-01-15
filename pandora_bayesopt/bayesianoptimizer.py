@@ -144,7 +144,7 @@ class BayesianOptimizer:
         i = 0
         while self.cumulative_cost < self.budget:
             self.iterate(acquisition_function_class, **acqf_kwargs)
-            self.print_iteration_info(i)
+            # self.print_iteration_info(i)
             i += 1
 
     def get_best_value(self):
