@@ -66,6 +66,7 @@ budget = 3.0
 
 global_optimum = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
 print("global_optimum", global_optimum)
+print()
 
 init_x = torch.zeros(dim).unsqueeze(1)
 
@@ -74,14 +75,71 @@ base_kernel = MaternKernel(nu=nu).double()
 base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
 kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
 
-# ### Test EI policy
+# # ### Test EI policy
+# print("EI")
+# EI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
+# EI_cost_history = EI_optimizer.get_cost_history()
+# EI_best_history = EI_optimizer.get_best_history()
+# EI_regret_history = EI_optimizer.get_regret_history(global_optimum)
 
-EI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
-EI_cost_history = EI_optimizer.get_cost_history()
-EI_best_history = EI_optimizer.get_best_history()
-EI_regret_history = EI_optimizer.get_regret_history(global_optimum)
+# print("EI cost history:", EI_cost_history)
+# print("EI best history:", EI_best_history)
+# print("EI regret history:", EI_regret_history)
+# print()
 
-print("EI cost history:", EI_cost_history)
-print("EI regret history:", EI_regret_history)
+
+# # Test EI per unit cost policy
+# print("EIpu")
+# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost)
+# EIpu_cost_history = EIpu_optimizer.get_cost_history()
+# EIpu_best_history = EIpu_optimizer.get_best_history()
+# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
+
+# print("EIpu cost history:", EIpu_cost_history)
+# print("EIpu best history:", EIpu_best_history)
+# print("EIpu regret history:", EIpu_regret_history)
+# print()
+
+
+# # Test EI with cost-cooling policy
+# print("EIpu")
+# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost, cost_cooling=True)
+# EIpu_cost_history = EIpu_optimizer.get_cost_history()
+# EIpu_best_history = EIpu_optimizer.get_best_history()
+# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
+
+# print("EIpu cost history:", EIpu_cost_history)
+# print("EIpu best history:", EIpu_best_history)
+# print("EIpu regret history:", EIpu_regret_history)
+# print()
+
+# # Test Hyperparameter-free Gittins policy
+# print("Hyperparameter-free GI")
+# GI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex)
+# GI_cost_history = GI_optimizer.get_cost_history()
+# GI_best_history = GI_optimizer.get_best_history()
+# GI_regret_history = GI_optimizer.get_regret_history(global_optimum)
+# GI_lmbda_history = GI_optimizer.get_lmbda_history()
+
+# print("GI cost history:", GI_cost_history)
+# print("GI best history:", GI_best_history)
+# print("GI regret history:", GI_regret_history)
+# print("GI lmbda history:", GI_lmbda_history)
+# print()
+
+# Test Gittins policy with small constant lambda
+print("GI with small constant lambda")
+GI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex, lmbda=0.0001)
+GI_cost_history = GI_optimizer.get_cost_history()
+GI_best_history = GI_optimizer.get_best_history()
+GI_regret_history = GI_optimizer.get_regret_history(global_optimum)
+
+print("GI cost history:", GI_cost_history)
+print("GI best history:", GI_best_history)
+print("GI regret history:", GI_regret_history)
 print()
