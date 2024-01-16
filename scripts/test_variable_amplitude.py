@@ -66,14 +66,14 @@ def objective_function(x):
     )
     return matern_sample(x) * amplitude_function(x)
 
-test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
-# Plot for scaled objective function
-plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
-plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
-plt.title(f"Scaled objective function and cost function")
-plt.xlabel("x")
-plt.grid(True)
-plt.show()
+# test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
+# # Plot for scaled objective function
+# plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
+# plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
+# plt.title(f"Scaled objective function and cost function")
+# plt.xlabel("x")
+# plt.grid(True)
+# plt.show()
 
 # ## Test performance of different policies
 

@@ -146,5 +146,7 @@ wandb.log({"plot": wandb.Image(plt)})
 plt.close()
 wandb.log({"global optimum": global_optimum})
 for cost, regret in zip(cost_history, regret_history):
-    wandb.log({"cost": cost, "regret": regret})
+    wandb.log({"cumulative cost": cost, "regret": regret})
+for cost, best in zip(cost_history, best_history):
+    wandb.log({"cumulative cost": cost, "best observed": best})
 wandb.finish()
