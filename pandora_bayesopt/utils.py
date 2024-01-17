@@ -10,12 +10,11 @@ from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 from botorch.acquisition import AcquisitionFunction
 from botorch.optim import optimize_acqf
 
-def create_objective_model(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
+def create_objective_model(dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
     """
     Create and return the objective model for sampling from a Matern kernel.
 
     Parameters:
-    - seed (int): Random seed for reproducibility. E.g., 42.
     - dim (int): Number of dimensions of the sample space.
     - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5, 1.5, 2.5.
     - lengthscale (float): Lengthscale parameter for the Matern kernel.
@@ -25,9 +24,6 @@ def create_objective_model(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_
     Returns:
     - objective_model: The model used to generate the objective function.
     """
-
-    # Set the seed for reproducibility
-    torch.manual_seed(seed)
 
     # Set up the Matern kernel
     base_kernel = MaternKernel(nu=nu).double()
@@ -48,13 +44,12 @@ def create_objective_model(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_
 
     return objective_model
 
-def create_objective_function(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
+def create_objective_function(dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
     
     """
     Create and return the objective function sampled from a Matern kernel.
     
     Parameters:
-    - seed (int): Random seed for reproducibility. E.g., 42.
     - dim (int): Number of dimensions of the sample space.
     - nu (float): Smoothness parameter for the Matern kernel. E.g., 0.5.
     - lengthscale (float): Lengthscale parameter for the Matern kernel.
@@ -67,7 +62,6 @@ def create_objective_function(seed, dim, nu, lengthscale, outputscale=1.0, num_r
     
     # Create the objective model inside the closure
     objective_model = create_objective_model(
-        seed=seed, 
         dim=dim, 
         nu=nu, 
         lengthscale=lengthscale,

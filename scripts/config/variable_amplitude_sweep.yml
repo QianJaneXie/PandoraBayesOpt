@@ -16,5 +16,11 @@ parameters:
     values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
   budget:
     value: 3.0
+  cost_function_epsilon:
+    value: 0.1
+  cost_function_delta:
+    value: 0.05
+  cost_function_width:
+    value: 100
   policy:
     values: ['EI','EIpu','EIcool', 'GIfree', 'GIlmbda']

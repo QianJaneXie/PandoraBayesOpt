@@ -11,7 +11,7 @@ from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition import ExpectedImprovementWithCost, GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
-
+import numpy as np
 import matplotlib.pyplot as plt
 import wandb
 
@@ -27,21 +27,6 @@ torch.set_default_dtype(torch.float64)
 # The continuous amplitude function and the continuous cost function are constructed based on the variances and costs of the discrete finite points provided in the original example
 
 # Define typical small values for epsilon and delta, and a moderate value for K
-epsilon = 0.1
-delta = 0.05
-K = 100  # Number of points excluding the central point
-
-# Define the functions for the amplitude and the cost
-def amplitude_function(x):
-    width = 1.0 / K  # Width of the bump to cover only the central point
-    amplitude = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * (1 - epsilon**2) + epsilon**2
-    return amplitude.squeeze(-1)
-
-def cost_function(x):
-    width = 1.0 / K  # Width of the bump to cover only the central point
-    peak_height = 1 + delta - epsilon
-    cost = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * peak_height + epsilon
-    return cost.squeeze(-1)
 
 def run_bayesopt_experiment(config):
     print(config)
@@ -55,6 +40,9 @@ def run_bayesopt_experiment(config):
         nu = 2.5  
     lengthscale = config['lengthscale']
     outputscale = config['amplitude']
+    epsilon = config['cost_function_epsilon'] # 0.1
+    delta = config['cost_function_delta'] # 0.05
+    cost_function_width = config['cost_function_width'] # 100
     num_rff_features = config['num_rff_features']
     seed = config['seed']
     torch.manual_seed(seed)
@@ -62,16 +50,27 @@ def run_bayesopt_experiment(config):
     print("policy:", policy)
     maximize = True
 
+    # Define the functions for the amplitude and the cost
+    def amplitude_function(x):
+        width = 1.0 / cost_function_width  # Width of the bump to cover only the central point
+        amplitude = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * (1 - epsilon**2) + epsilon**2
+        return amplitude.squeeze(-1)
+
+    def cost_function(x):
+        width = 1.0 / cost_function_width  # Width of the bump to cover only the central point
+        peak_height = 1 + delta - epsilon
+        cost = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * peak_height + epsilon
+        return cost.squeeze(-1)
+    
     # Create the objective function
-    def objective_function(x):
-        matern_sample = create_objective_function(
-        seed=seed, 
+    matern_sample = create_objective_function(
         dim=dim, 
         nu=nu, 
         lengthscale=lengthscale,
         outputscale=outputscale,
         num_rff_features=num_rff_features
         )
+    def objective_function(x):
         return matern_sample(x) * amplitude_function(x)
 
     # Find the global optimum
