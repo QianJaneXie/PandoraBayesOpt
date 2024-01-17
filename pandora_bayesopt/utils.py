@@ -7,8 +7,8 @@ from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 
-import numpy as np
-from scipy.optimize import differential_evolution
+from botorch.acquisition import AcquisitionFunction
+from botorch.optim import optimize_acqf
 
 def create_objective_model(seed, dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
     """
@@ -110,29 +110,55 @@ def fit_gp_model(X, Y, kernel, Yvar=None, noise_level=1e-4):
     fit_gpytorch_model(mll)
     return model
 
+class ObjectiveAcquisitionFunction(AcquisitionFunction):
+    def __init__(self, model, objective, maximize=True):
+        super().__init__(model)
+        self.objective = objective
+        self.maximize = maximize
 
-def find_global_optimum(objective, dim, maximize):
+    def forward(self, X):
+        if self.maximize:
+            return self.objective(X)
+        else:
+            return -self.objective(X)
+
+def find_global_optimum(objective, dim, maximize, raw_samples=None, method='L-BFGS-B'):
     """
-    Find the global optimum using differential evolution.
-
+    Find the global optimum using multi-start optimization.
     Parameters:
     - objective (function): The objective function to optimize.
-    - dim (int): The number of dimensions.
+    - dim (int): The number of dimensions
     - maximize (bool): If True, maximizes the objective; otherwise, minimizes.
-
+    - raw_samples (int): Number of raw samples for the optimization.
+    - method: Optimization method; e.g., 'L-BFGS-B'
     Returns:
     - float: The global optimum found.
     """
 
-    def scipy_objective(x):
-        x_tensor = torch.tensor(x, dtype=torch.float64)
-        return -objective(x_tensor) if maximize else objective(x_tensor)
+    # Define the dummy model
+    model = None
+    
+    # If raw_samples is None, set a default value based on the dimension
+    if raw_samples is None:
+        raw_samples = 10 * dim
 
-    scipy_bounds = list(zip(np.zeros(dim), np.ones(dim)))
+    # Initialize the acquisition function
+    obj_acqf = ObjectiveAcquisitionFunction(model=model, objective=objective, maximize=maximize)
 
-    # Run differential evolution
-    result = differential_evolution(scipy_objective, scipy_bounds)
+    # Define bounds based on the dimension
+    bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
 
-    global_optimum = scipy_objective(result.x).item()
+    # Optimize the acquisition function
+    global_optimum_point, _ = optimize_acqf(
+        acq_function=obj_acqf,
+        bounds=bounds,
+        q=1,
+        num_restarts=1,
+        raw_samples=512*dim,
+        options={'method': method},
+    )
 
-    return -global_optimum if maximize else global_optimum
+    # Evaluate the objective function at the optimum point to get the true value
+    global_optimum_value = objective(global_optimum_point).item()
+
+    return global_optimum_point.squeeze(-1).squeeze(-1), global_optimum_value

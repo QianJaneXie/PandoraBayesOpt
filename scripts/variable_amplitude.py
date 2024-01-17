@@ -74,18 +74,19 @@ def run_bayesopt_experiment(config):
         )
         return matern_sample(x) * amplitude_function(x)
 
+    # Find the global optimum
+    global_optimum_point, global_optimum_value = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
+    print("global_optimum", global_optimum_point, global_optimum_value)
+
     test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
     # Plot for scaled objective function
     plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
     plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
+    plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
     plt.title(f"Scaled objective function and cost function")
     plt.xlabel("x")
     plt.ylabel("y")
     plt.grid(True)
-
-    # Find the global optimum
-    global_optimum = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
-    print("global_optimum", global_optimum)
 
     base_kernel = MaternKernel(nu=nu).double()
     base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
@@ -131,22 +132,37 @@ def run_bayesopt_experiment(config):
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    regret_history = Optimizer.get_regret_history(global_optimum)
+    regret_history = Optimizer.get_regret_history(global_optimum_value)
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
     print("Regret history:", regret_history)
     print()
 
-    return (plt, global_optimum, cost_history, best_history, regret_history)
+    return (budget, plt, global_optimum_value, cost_history, best_history, regret_history)
 
 wandb.init()
-(plt, global_optimum, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, plt, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+
 wandb.log({"plot": wandb.Image(plt)})
 plt.close()
-wandb.log({"global optimum": global_optimum})
-for cost, regret in zip(cost_history, regret_history):
-    wandb.log({"cumulative cost": cost, "regret": regret})
+
+wandb.log({"global optimum value": global_optimum_value})
+
 for cost, best in zip(cost_history, best_history):
+    wandb.log({"raw cumulative cost": cost, "raw best observed": best})
+for cost, regret in zip(cost_history, regret_history):
+    wandb.log({"raw cumulative cost": cost, "raw regret": regret})
+
+interp_cost = np.linspace(0, budget, num=int(10*budget))
+interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_best = interp_func_best(interp_cost)
+interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_regret = interp_func_regret(interp_cost)
+
+for cost, best in zip(interp_cost, interp_best):
     wandb.log({"cumulative cost": cost, "best observed": best})
+for cost, regret in zip(interp_cost, interp_regret):
+    wandb.log({"cumulative cost": cost, "regret": regret})
+
 wandb.finish()
