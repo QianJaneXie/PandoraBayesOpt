@@ -14,6 +14,7 @@ from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
 import matplotlib.pyplot as plt
 import wandb
+from scipy.interpolate import interp1d
 
 
 # use a GPU if available
@@ -69,7 +70,7 @@ def run_bayesopt_experiment(config):
         lengthscale=lengthscale,
         outputscale=outputscale,
         num_rff_features=num_rff_features
-        )
+    )
     def objective_function(x):
         return matern_sample(x) * amplitude_function(x)
 
@@ -78,14 +79,9 @@ def run_bayesopt_experiment(config):
     print("global_optimum", global_optimum_point, global_optimum_value)
 
     test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
-    # Plot for scaled objective function
-    plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
-    plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
-    plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
-    plt.title(f"Scaled objective function and cost function")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.grid(True)
+    test_pts = test_x.cpu().numpy()
+    obj_val = objective_function(test_x.view(-1,1)).numpy()
+    cost_val = cost_function(test_x.view(-1,1)).numpy()
 
     base_kernel = MaternKernel(nu=nu).double()
     base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
@@ -138,15 +134,18 @@ def run_bayesopt_experiment(config):
     print("Regret history:", regret_history)
     print()
 
-    return (budget, plt, global_optimum_value, cost_history, best_history, regret_history)
+    return (budget, test_pts, obj_val, cost_val, global_optimum_point, global_optimum_value, cost_history, best_history, regret_history)
 
 wandb.init()
-(budget, plt, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, test_pts, obj_val, cost_val, global_optimum_point, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
-wandb.log({"plot": wandb.Image(plt)})
-plt.close()
+for x, y in zip(test_pts, obj_val):
+    wandb.log({"x": x, "f(x)": y})
 
-wandb.log({"global optimum value": global_optimum_value})
+for x, y in zip(test_pts, cost_val):
+    wandb.log({"x": x, "c(x)": y})
+
+wandb.log({"global optimum point": global_optimum_point, "global optimum value": global_optimum_value})
 
 for cost, best in zip(cost_history, best_history):
     wandb.log({"raw cumulative cost": cost, "raw best observed": best})

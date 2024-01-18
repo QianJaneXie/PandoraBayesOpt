@@ -3,7 +3,7 @@ program: scripts/variable_amplitude.py
 method: grid
 parameters:
   kernel:
-    values: ["matern52"]
+    values: ["matern12", "matern32", "matern52"]
   dim:
     values: [1]
   lengthscale:

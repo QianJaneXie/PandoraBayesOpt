@@ -148,7 +148,7 @@ def find_global_optimum(objective, dim, maximize, raw_samples=None, method='L-BF
         bounds=bounds,
         q=1,
         num_restarts=1,
-        raw_samples=512*dim,
+        raw_samples=1024*dim,
         options={'method': method},
     )
 

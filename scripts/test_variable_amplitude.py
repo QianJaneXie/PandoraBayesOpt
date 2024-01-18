@@ -49,7 +49,7 @@ def cost_function(x):
 
 # Create the objective model
 dim = 1
-nu = 1.5
+nu = 0.5
 lengthscale = 0.01
 outputscale = 1.0
 num_rff_features = 1280
@@ -57,15 +57,16 @@ seed = 42
 torch.manual_seed(seed)
 print("seed:", seed)
 
+# Create the objective function
+matern_sample = create_objective_function(
+    dim=dim, 
+    nu=nu, 
+    lengthscale=lengthscale,
+    outputscale=outputscale,
+    num_rff_features=num_rff_features
+)
+
 def objective_function(x):
-    matern_sample = create_objective_function(
-        seed=seed, 
-        dim=dim, 
-        nu=nu, 
-        lengthscale=lengthscale,
-        outputscale=outputscale,
-        num_rff_features=num_rff_features
-    )
     return matern_sample(x) * amplitude_function(x)
 
 # ## Test performance of different policies
@@ -74,27 +75,27 @@ maximize = True
 dim = 1
 budget = 3.0
 
-# global_optimum_point, global_optimum_value = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
-# print("global_optimum", global_optimum_point, global_optimum_value)
-# print()
+global_optimum_point, global_optimum_value = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
+print("global_optimum", global_optimum_point, global_optimum_value)
+print()
 
-# # Plot for scaled objective function
-# test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
-# plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
-# plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
-# plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
-# plt.title(f"Scaled objective function and cost function")
-# plt.xlabel("x")
-# plt.grid(True)
-# plt.show()
-# plt.close()
+# Plot for scaled objective function
+test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
+plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
+plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
+plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
+plt.title(f"Scaled objective function and cost function")
+plt.xlabel("x")
+plt.grid(True)
+plt.show()
+plt.close()
 
-init_x = torch.zeros(dim).unsqueeze(1)
+# init_x = torch.zeros(dim).unsqueeze(1)
 
-# Set up the kernel
-base_kernel = MaternKernel(nu=nu).double()
-base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
-kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
+# # Set up the kernel
+# base_kernel = MaternKernel(nu=nu).double()
+# base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
+# kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
 
 # # Test EI policy
 # print("EI")
@@ -124,22 +125,22 @@ kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
 # print()
 
 # Test EI with cost-cooling policy
-print("EIpu")
-EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost, cost_cooling=True)
-EIpu_cost_history = EIpu_optimizer.get_cost_history()
-EIpu_best_history = EIpu_optimizer.get_best_history()
-# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
+# print("EIpu")
+# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost, cost_cooling=True)
+# EIpu_cost_history = EIpu_optimizer.get_cost_history()
+# EIpu_best_history = EIpu_optimizer.get_best_history()
+# # EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
 
-common_cost_points = np.linspace(0, budget, num=int(10*budget))
-interp_func_best = interp1d(EIpu_cost_history, EIpu_best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
-interp_best = interp_func_best(common_cost_points)
+# common_cost_points = np.linspace(0, budget, num=int(10*budget))
+# interp_func_best = interp1d(EIpu_cost_history, EIpu_best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+# interp_best = interp_func_best(common_cost_points)
 
-print("EIpu cost history:", EIpu_cost_history)
-print("EIpu best history:", EIpu_best_history)
+# print("EIpu cost history:", EIpu_cost_history)
+# print("EIpu best history:", EIpu_best_history)
 # print("EIpu regret history:", EIpu_regret_history)
-print("Interporlated best observed values:", interp_best)
-print()
+# print("Interporlated best observed values:", interp_best)
+# print()
 
 # # Test Hyperparameter-free Gittins policy
 # print("Hyperparameter-free GI")
