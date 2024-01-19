@@ -5,6 +5,8 @@
 # Extension of the numerical examples presented in Theorem 1 of Raul and Peter's paper which aims to show the limitation of EIpu and EI. The experiment extends the scope from Pandora's box (discrete finite points) to Bayesian optimization (continuous domain) and compares Gittins with EIpu/EI.
 
 import torch
+from gpytorch.kernels import MaternKernel
+from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum
 from botorch.utils.gp_sampling import get_deterministic_model
 from botorch.acquisition import ExpectedImprovement
@@ -77,19 +79,26 @@ global_optimum_point, global_optimum_value = find_global_optimum(objective=objec
 print("global_optimum", global_optimum_point, global_optimum_value)
 print()
 
-# # Plot for scaled objective function
-# test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
-# plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
-# plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
-# plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
-# plt.title(f"Scaled objective function and cost function")
-# plt.xlabel("x")
-# plt.grid(True)
-# plt.show()
-# plt.close()
+# Plot for scaled objective function
+test_x = torch.linspace(0, 1, 1001, dtype=torch.float64, device=device)
+plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
+plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
+plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
+plt.title(f"Scaled objective function and cost function")
+plt.xlabel("x")
+plt.grid(True)
+plt.show()
+plt.close()
 
+# Initialize points
 init_x = torch.zeros(dim).unsqueeze(1)
 print("initial point:", init_x, "initial value:", objective_function(init_x))
+
+# Set up the kernel
+base_kernel = MaternKernel(nu=nu).double()
+base_kernel.lengthscale = lengthscale
+base_kernel.raw_lengthscale.requires_grad = False
+kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
 
 # # Test EI policy
 # print("EI")
@@ -98,9 +107,7 @@ print("initial point:", init_x, "initial value:", objective_function(init_x))
     #     dim=dim, 
     #     maximize=maximize, 
     #     initial_points=init_x, 
-    #     nu=nu,
-    #     lengthscale=lengthscale,
-    #     amplitude_function=amplitude_function, 
+    #     kernel=kernel,  
     #     cost=cost_function
     # )
 # EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
@@ -121,9 +128,7 @@ print("initial point:", init_x, "initial value:", objective_function(init_x))
     #     dim=dim, 
     #     maximize=maximize, 
     #     initial_points=init_x, 
-    #     nu=nu,
-    #     lengthscale=lengthscale,
-    #     amplitude_function=amplitude_function, 
+    #     kernel=kernel,  
     #     cost=cost_function
     # )
 # EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost)
@@ -143,9 +148,7 @@ print("initial point:", init_x, "initial value:", objective_function(init_x))
     #     dim=dim, 
     #     maximize=maximize, 
     #     initial_points=init_x, 
-    #     nu=nu,
-    #     lengthscale=lengthscale,
-    #     amplitude_function=amplitude_function, 
+    #     kernel=kernel, 
     #     cost=cost_function
     # )
 # EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost, cost_cooling=True)
@@ -170,9 +173,7 @@ GI_optimizer = BayesianOptimizer(
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x, 
-        nu=nu,
-        lengthscale=lengthscale,
-        amplitude_function=amplitude_function, 
+        kernel=kernel, 
         cost=cost_function
     )
 GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex)
@@ -187,17 +188,17 @@ print("GI regret history:", GI_regret_history)
 print("GI lmbda history:", GI_lmbda_history)
 print()
 
-interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
-interp_func_best = interp1d(GI_cost_history, GI_best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
-interp_best = interp_func_best(interp_cost)
-interp_func_regret = interp1d(GI_cost_history, GI_regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
-interp_regret = interp_func_regret(interp_cost)
-interp_func_log_regret = interp1d(GI_cost_history, list(np.log(GI_regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
-interp_log_regret = interp_func_log_regret(interp_cost)
-print("interp_log_regret:", interp_log_regret)
+# interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
+# interp_func_best = interp1d(GI_cost_history, GI_best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+# interp_best = interp_func_best(interp_cost)
+# interp_func_regret = interp1d(GI_cost_history, GI_regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+# interp_regret = interp_func_regret(interp_cost)
+# interp_func_log_regret = interp1d(GI_cost_history, list(np.log(GI_regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
+# interp_log_regret = interp_func_log_regret(interp_cost)
+# print("interp_log_regret:", interp_log_regret)
 
-for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
-    print({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": log_regret})
+# for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
+#     print({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": log_regret})
 
 # # Test Gittins policy with small constant lambda
 # print("GI with small constant lambda")

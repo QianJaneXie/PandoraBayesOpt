@@ -81,6 +81,12 @@ def run_bayesopt_experiment(config):
     obj_val = objective_function(test_x.view(-1,1)).numpy()
     cost_val = cost_function(test_x.view(-1,1)).numpy()
 
+    # Set up the kernel
+    base_kernel = MaternKernel(nu=nu).double()
+    base_kernel.lengthscale = lengthscale
+    base_kernel.raw_lengthscale.requires_grad = False
+    kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
+
     # Test performance of different policies
     budget = config['budget']
     init_x = torch.zeros(dim).unsqueeze(1)
@@ -89,9 +95,7 @@ def run_bayesopt_experiment(config):
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x, 
-        nu=nu,
-        lengthscale=lengthscale,
-        amplitude_function=amplitude_function, 
+        kernel=kernel, 
         cost=cost_function
     )
     if policy == 'EI':

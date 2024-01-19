@@ -1,6 +1,4 @@
 import torch
-from gpytorch.kernels import MaternKernel
-from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.sampling import draw_sobol_samples
@@ -35,7 +33,7 @@ def plot_posterior(ax,objective_function,model,test_x,train_x,train_y):
     ax.legend(['Objective Function', 'Observed Data', 'Mean', 'Confidence'])
 
 class BayesianOptimizer:
-    def __init__(self, objective, dim, maximize, initial_points, nu, lengthscale, amplitude_function, cost=None):
+    def __init__(self, objective, dim, maximize, initial_points, kernel, cost=None):
         self.objective = objective
         self.maximize = maximize
         self.dim = dim
@@ -48,9 +46,7 @@ class BayesianOptimizer:
         self.initialize_points(initial_points)
         
         # GP model parameters
-        self.nu = nu
-        self.lengthscale = lengthscale
-        self.amplitude_function = amplitude_function
+        self.kernel = kernel
 
     def initialize_points(self, initial_points):
         self.x = initial_points
@@ -62,12 +58,8 @@ class BayesianOptimizer:
         self.best_history.append(self.best_f)
 
     def iterate(self, acquisition_function_class, **acqf_kwargs):
-        # Set up the kernel
-        base_kernel = MaternKernel(nu=self.nu).double()
-        base_kernel.lengthscale = torch.tensor([[self.lengthscale]], dtype=torch.float64)
-        kernel = VariableAmplitudeKernel(base_kernel, self.amplitude_function)
         
-        model = fit_gp_model(self.x.detach(), self.y.detach(), kernel=kernel)
+        model = fit_gp_model(self.x.detach(), self.y.detach(), kernel=self.kernel)
         
         acqf_args = {'model': model, 'maximize': self.maximize}
         
