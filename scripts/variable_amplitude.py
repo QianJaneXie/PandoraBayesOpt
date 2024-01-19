@@ -76,7 +76,7 @@ def run_bayesopt_experiment(config):
     global_optimum_point, global_optimum_value = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
     print("global_optimum", global_optimum_point, global_optimum_value)
 
-    test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
+    test_x = torch.linspace(0, 1, 1001, dtype=torch.float64, device=device)
     test_pts = test_x.cpu().numpy()
     obj_val = objective_function(test_x.view(-1,1)).numpy()
     cost_val = cost_function(test_x.view(-1,1)).numpy()
@@ -143,13 +143,15 @@ wandb.log({"global optimum point": global_optimum_point, "global optimum value":
 for cost, best, regret in zip(cost_history, best_history, regret_history):
     wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log(regret)})
 
-interp_cost = np.linspace(0, budget, num=int(10*budget))
+interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_best = interp_func_best(interp_cost)
 interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_regret = interp_func_regret(interp_cost)
+interp_func_log_regret = interp1d(cost_history, list(np.log(regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_log_regret = interp_func_log_regret(interp_cost)
 
-for cost, best, regret in zip(interp_cost, interp_best, interp_regret):
-    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": np.log(regret)})
+for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
+    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": log_regret})
 
 wandb.finish()

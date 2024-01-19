@@ -187,6 +187,18 @@ print("GI regret history:", GI_regret_history)
 print("GI lmbda history:", GI_lmbda_history)
 print()
 
+interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
+interp_func_best = interp1d(GI_cost_history, GI_best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_best = interp_func_best(interp_cost)
+interp_func_regret = interp1d(GI_cost_history, GI_regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_regret = interp_func_regret(interp_cost)
+interp_func_log_regret = interp1d(GI_cost_history, list(np.log(GI_regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_log_regret = interp_func_log_regret(interp_cost)
+print("interp_log_regret:", interp_log_regret)
+
+for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
+    print({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": log_regret})
+
 # # Test Gittins policy with small constant lambda
 # print("GI with small constant lambda")
 # GI_optimizer = BayesianOptimizer(
@@ -211,10 +223,10 @@ print()
 
 # plt.plot(EI_cost_history, EI_best_history, '.-', label="EI")
 # plt.plot(EIpu_cost_history, EIpu_best_history, '.-', label="EIpu", color='black')
-plt.plot(GI_cost_history, GI_best_history, '.-', label="GI (lmbda=EIpu_max/2)")
+# plt.plot(GI_cost_history, GI_best_history, '.-', label="GI (lmbda=EIpu_max/2)")
 # plt.plot(GIlmbda_cost_history, GIlmbda_best_history, '.-', label="GI (lmbda=0.0001)")
-plt.xlabel('Cumulative Cost')
-plt.ylabel('Best Observed')
-plt.legend()
-plt.show()
-plt.close()
+# plt.xlabel('Cumulative Cost')
+# plt.ylabel('Best Observed')
+# plt.legend()
+# plt.show()
+# plt.close()
