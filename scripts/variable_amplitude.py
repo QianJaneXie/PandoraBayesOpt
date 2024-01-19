@@ -43,7 +43,7 @@ def run_bayesopt_experiment(config):
     outputscale = config['amplitude']
     epsilon = config['cost_function_epsilon'] # 0.1
     delta = config['cost_function_delta'] # 0.05
-    cost_function_width = config['cost_function_width'] # 100
+    cost_function_width = config['cost_function_width'] # 0.01
     num_rff_features = config['num_rff_features']
     seed = config['seed']
     torch.manual_seed(seed)
@@ -53,12 +53,12 @@ def run_bayesopt_experiment(config):
 
     # Define the functions for the amplitude and the cost
     def amplitude_function(x):
-        width = 1.0 / cost_function_width  # Width of the bump to cover only the central point
+        width = cost_function_width # Width of the bump to cover only the central point
         amplitude = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * (1 - epsilon**2) + epsilon**2
         return amplitude.squeeze(-1)
 
     def cost_function(x):
-        width = 1.0 / cost_function_width  # Width of the bump to cover only the central point
+        width = cost_function_width  # Width of the bump to cover only the central point
         peak_height = 1 + delta - epsilon
         cost = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * peak_height + epsilon
         return cost.squeeze(-1)

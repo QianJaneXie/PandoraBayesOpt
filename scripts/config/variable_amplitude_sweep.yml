@@ -21,6 +21,6 @@ parameters:
   cost_function_delta:
     value: 0.05
   cost_function_width:
-    value: 100
+    value: 0.01
   policy:
     values: ['EI','EIpu','EIcool', 'GIfree', 'GIlmbda']
