@@ -6,8 +6,6 @@
 
 import torch
 from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum
-from gpytorch.kernels import MaternKernel
-from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition import ExpectedImprovementWithCost, GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
@@ -83,10 +81,6 @@ def run_bayesopt_experiment(config):
     obj_val = objective_function(test_x.view(-1,1)).numpy()
     cost_val = cost_function(test_x.view(-1,1)).numpy()
 
-    base_kernel = MaternKernel(nu=nu).double()
-    base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
-    kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
-
     # Test performance of different policies
     budget = config['budget']
     init_x = torch.zeros(dim).unsqueeze(1)
@@ -95,7 +89,9 @@ def run_bayesopt_experiment(config):
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x, 
-        kernel=kernel, 
+        nu=nu,
+        lengthscale=lengthscale,
+        amplitude_function=amplitude_function, 
         cost=cost_function
     )
     if policy == 'EI':
@@ -139,18 +135,13 @@ def run_bayesopt_experiment(config):
 wandb.init()
 (budget, test_pts, obj_val, cost_val, global_optimum_point, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
-for x, y in zip(test_pts, obj_val):
-    wandb.log({"x": x, "f(x)": y})
-
-for x, y in zip(test_pts, cost_val):
-    wandb.log({"x": x, "c(x)": y})
+for x, y, c in zip(test_pts, obj_val, cost_val):
+    wandb.log({"x": x, "f(x)": y, "c(x)":c})
 
 wandb.log({"global optimum point": global_optimum_point, "global optimum value": global_optimum_value})
 
-for cost, best in zip(cost_history, best_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": best})
-for cost, regret in zip(cost_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw regret": regret})
+for cost, best, regret in zip(cost_history, best_history, regret_history):
+    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log(regret)})
 
 interp_cost = np.linspace(0, budget, num=int(10*budget))
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
@@ -158,9 +149,7 @@ interp_best = interp_func_best(interp_cost)
 interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_regret = interp_func_regret(interp_cost)
 
-for cost, best in zip(interp_cost, interp_best):
-    wandb.log({"cumulative cost": cost, "best observed": best})
-for cost, regret in zip(interp_cost, interp_regret):
-    wandb.log({"cumulative cost": cost, "regret": regret})
+for cost, best, regret in zip(interp_cost, interp_best, interp_regret):
+    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": np.log(regret)})
 
 wandb.finish()

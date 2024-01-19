@@ -6,9 +6,7 @@
 
 import torch
 from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum
-from gpytorch.kernels import MaternKernel
 from botorch.utils.gp_sampling import get_deterministic_model
-from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition import ExpectedImprovementWithCost, GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
@@ -49,11 +47,11 @@ def cost_function(x):
 
 # Create the objective model
 dim = 1
-nu = 0.5
+nu = 2.5
 lengthscale = 0.01
 outputscale = 1.0
 num_rff_features = 1280
-seed = 42
+seed = 2
 torch.manual_seed(seed)
 print("seed:", seed)
 
@@ -79,31 +77,36 @@ global_optimum_point, global_optimum_value = find_global_optimum(objective=objec
 print("global_optimum", global_optimum_point, global_optimum_value)
 print()
 
-# Plot for scaled objective function
-test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
-plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
-plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
-plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
-plt.title(f"Scaled objective function and cost function")
-plt.xlabel("x")
-plt.grid(True)
-plt.show()
-plt.close()
+# # Plot for scaled objective function
+# test_x = torch.linspace(0, 1, 3001, dtype=torch.float64, device=device)
+# plt.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), color='tab:grey', label="Scaled objective function", alpha=0.6)
+# plt.plot(test_x.cpu().numpy(), cost_function(test_x.view(-1,1)).numpy(), label="Cost function", alpha=0.6)
+# plt.plot(global_optimum_point.cpu().numpy(), global_optimum_value, 'r*', label="global_optimum", alpha=0.8)
+# plt.title(f"Scaled objective function and cost function")
+# plt.xlabel("x")
+# plt.grid(True)
+# plt.show()
+# plt.close()
 
-# init_x = torch.zeros(dim).unsqueeze(1)
-
-# # Set up the kernel
-# base_kernel = MaternKernel(nu=nu).double()
-# base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
-# kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
+init_x = torch.zeros(dim).unsqueeze(1)
+print("initial point:", init_x, "initial value:", objective_function(init_x))
 
 # # Test EI policy
 # print("EI")
-# EI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EI_optimizer = BayesianOptimizer(
+    #     objective=objective_function, 
+    #     dim=dim, 
+    #     maximize=maximize, 
+    #     initial_points=init_x, 
+    #     nu=nu,
+    #     lengthscale=lengthscale,
+    #     amplitude_function=amplitude_function, 
+    #     cost=cost_function
+    # )
 # EI_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovement)
 # EI_cost_history = EI_optimizer.get_cost_history()
 # EI_best_history = EI_optimizer.get_best_history()
-# EI_regret_history = EI_optimizer.get_regret_history(global_optimum)
+# EI_regret_history = EI_optimizer.get_regret_history(global_optimum_value)
 
 # print("EI cost history:", EI_cost_history)
 # print("EI best history:", EI_best_history)
@@ -113,11 +116,20 @@ plt.close()
 
 # # Test EI per unit cost policy
 # print("EIpu")
-# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EIpu_optimizer = BayesianOptimizer(
+    #     objective=objective_function, 
+    #     dim=dim, 
+    #     maximize=maximize, 
+    #     initial_points=init_x, 
+    #     nu=nu,
+    #     lengthscale=lengthscale,
+    #     amplitude_function=amplitude_function, 
+    #     cost=cost_function
+    # )
 # EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost)
 # EIpu_cost_history = EIpu_optimizer.get_cost_history()
 # EIpu_best_history = EIpu_optimizer.get_best_history()
-# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum)
+# EIpu_regret_history = EIpu_optimizer.get_regret_history(global_optimum_value)
 
 # print("EIpu cost history:", EIpu_cost_history)
 # print("EIpu best history:", EIpu_best_history)
@@ -126,7 +138,16 @@ plt.close()
 
 # Test EI with cost-cooling policy
 # print("EIpu")
-# EIpu_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# EIpu_optimizer = BayesianOptimizer(
+    #     objective=objective_function, 
+    #     dim=dim, 
+    #     maximize=maximize, 
+    #     initial_points=init_x, 
+    #     nu=nu,
+    #     lengthscale=lengthscale,
+    #     amplitude_function=amplitude_function, 
+    #     cost=cost_function
+    # )
 # EIpu_optimizer.run_until_budget(budget=budget, acquisition_function_class=ExpectedImprovementWithCost, cost_cooling=True)
 # EIpu_cost_history = EIpu_optimizer.get_cost_history()
 # EIpu_best_history = EIpu_optimizer.get_best_history()
@@ -142,30 +163,58 @@ plt.close()
 # print("Interporlated best observed values:", interp_best)
 # print()
 
-# # Test Hyperparameter-free Gittins policy
-# print("Hyperparameter-free GI")
-# GI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
-# GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex)
-# GI_cost_history = GI_optimizer.get_cost_history()
-# GI_best_history = GI_optimizer.get_best_history()
-# GI_regret_history = GI_optimizer.get_regret_history(global_optimum)
-# GI_lmbda_history = GI_optimizer.get_lmbda_history()
+# Test Hyperparameter-free Gittins policy
+print("Hyperparameter-free GI")
+GI_optimizer = BayesianOptimizer(
+        objective=objective_function, 
+        dim=dim, 
+        maximize=maximize, 
+        initial_points=init_x, 
+        nu=nu,
+        lengthscale=lengthscale,
+        amplitude_function=amplitude_function, 
+        cost=cost_function
+    )
+GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex)
+GI_cost_history = GI_optimizer.get_cost_history()
+GI_best_history = GI_optimizer.get_best_history()
+GI_regret_history = GI_optimizer.get_regret_history(global_optimum_value)
+GI_lmbda_history = GI_optimizer.get_lmbda_history()
 
-# print("GI cost history:", GI_cost_history)
-# print("GI best history:", GI_best_history)
-# print("GI regret history:", GI_regret_history)
-# print("GI lmbda history:", GI_lmbda_history)
-# print()
+print("GI cost history:", GI_cost_history)
+print("GI best history:", GI_best_history)
+print("GI regret history:", GI_regret_history)
+print("GI lmbda history:", GI_lmbda_history)
+print()
 
 # # Test Gittins policy with small constant lambda
 # print("GI with small constant lambda")
-# GI_optimizer = BayesianOptimizer(objective=objective_function, dim=dim, maximize=maximize, initial_points=init_x, kernel=kernel, cost=cost_function)
+# GI_optimizer = BayesianOptimizer(
+    #     objective=objective_function, 
+    #     dim=dim, 
+    #     maximize=maximize, 
+    #     initial_points=init_x, 
+    #     nu=nu,
+    #     lengthscale=lengthscale,
+    #     amplitude_function=amplitude_function, 
+    #     cost=cost_function
+    # )
 # GI_optimizer.run_until_budget(budget=budget, acquisition_function_class=GittinsIndex, lmbda=0.0001)
 # GI_cost_history = GI_optimizer.get_cost_history()
 # GI_best_history = GI_optimizer.get_best_history()
-# GI_regret_history = GI_optimizer.get_regret_history(global_optimum)
+# GI_regret_history = GI_optimizer.get_regret_history(global_optimum_value)
 
 # print("GI cost history:", GI_cost_history)
 # print("GI best history:", GI_best_history)
 # print("GI regret history:", GI_regret_history)
 # print()
+
+# plt.plot(EI_cost_history, EI_best_history, '.-', label="EI")
+# plt.plot(EIpu_cost_history, EIpu_best_history, '.-', label="EIpu", color='black')
+plt.plot(GI_cost_history, GI_best_history, '.-', label="GI (lmbda=EIpu_max/2)")
+# plt.plot(GIlmbda_cost_history, GIlmbda_best_history, '.-', label="GI (lmbda=0.0001)")
+plt.xlabel('Cumulative Cost')
+plt.ylabel('Best Observed')
+plt.legend()
+plt.show()
+plt.close()
