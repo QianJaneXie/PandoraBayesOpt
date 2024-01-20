@@ -3,6 +3,7 @@ from gpytorch.kernels import MaternKernel, ScaleKernel
 from botorch.utils.gp_sampling import get_deterministic_model, RandomFourierFeatures
 
 from botorch.models import SingleTaskGP
+from botorch.models.transforms.outcome import Standardize
 from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
@@ -86,7 +87,7 @@ def create_objective_function(dim, nu, lengthscale, outputscale=1.0, num_rff_fea
 
     return objective
 
-def fit_gp_model(X, Y, kernel, Yvar=None, noise_level=1e-4):
+def fit_gp_model(X, Y, kernel=None, Yvar=None, input_standardize=False, noise_level=1e-4):
     # Ensure X is a 2D tensor [num_data, num_features]
     if X.ndim == 1:
         X = X.unsqueeze(dim=-1)
@@ -97,9 +98,17 @@ def fit_gp_model(X, Y, kernel, Yvar=None, noise_level=1e-4):
         
     if Yvar is None:
         Yvar = torch.ones(len(Y)) * noise_level
-        
-    model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = FixedNoiseGaussianLikelihood(noise=Yvar), covar_module=kernel)
 
+    # Outcome transform
+    if input_standardize == True:
+        outcome_transform = Standardize(m=Y.shape[-1])
+    else:
+        outcome_transform = None
+   
+    model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = FixedNoiseGaussianLikelihood(noise=Yvar), covar_module=kernel, outcome_transform=outcome_transform)
+
+    if input_standardize == True:
+        model.outcome_transform.eval()
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_model(mll)
     return model
