@@ -21,12 +21,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
 
-
-# ## Define the amplitude function and the cost function 
-# The continuous amplitude function and the continuous cost function are constructed based on the variances and costs of the discrete finite points provided in the original example
-
-# Define typical small values for epsilon and delta, and a moderate value for K
-
 def run_bayesopt_experiment(config):
     print(config)
 
@@ -40,8 +34,8 @@ def run_bayesopt_experiment(config):
     lengthscale = config['lengthscale']
     outputscale = config['amplitude']
     epsilon = config['cost_function_epsilon'] # 0.1
-    delta = config['cost_function_delta'] # 0.05
-    cost_function_width = config['cost_function_width'] # 0.01
+    delta = config['cost_function_delta'] # 10
+    cost_function_width = config['cost_function_width'] # 0.001
     num_rff_features = config['num_rff_features']
     seed = config['seed']
     torch.manual_seed(seed)
@@ -89,7 +83,7 @@ def run_bayesopt_experiment(config):
 
     # Test performance of different policies
     budget = config['budget']
-    init_x = torch.zeros(dim).unsqueeze(1)
+    init_x = torch.zeros(dim).unsqueeze(0)
     Optimizer = BayesianOptimizer(
         objective=objective_function, 
         dim=dim, 
@@ -105,25 +99,27 @@ def run_bayesopt_experiment(config):
         )
     elif policy == 'EIpu':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovementWithCost
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovementWithCost
         )
     elif policy == 'EIcool':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovementWithCost,
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovementWithCost,
             cost_cooling = True
         )
     elif policy == 'GIlmbda':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
+            budget = budget, 
+            acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'GIfree':
+    elif policy == 'GIdecay':
         Optimizer.run_until_budget(
             budget=budget, 
-            acquisition_function_class=GittinsIndex
+            acquisition_function_class=GittinsIndex,
+            decay = True,
+            alpha = 128
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()

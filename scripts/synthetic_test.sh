@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -J variable_amplitude                # Job name
-#SBATCH -o variable_amplitude_%j.out         # Output file (%j expands to jobID)
-#SBATCH -e variable_amplitude_%j.err         # Error log file (%j expands to jobID)
+#SBATCH -J synthetic_test                # Job name
+#SBATCH -o synthetic_test_%j.out         # Output file (%j expands to jobID)
+#SBATCH -e synthetic_test_%j.err         # Error log file (%j expands to jobID)
 #SBATCH --mail-type=ALL                      # Request status by email 
 #SBATCH --mail-user=qx66@cornell.edu         # Email address to send results to
 #SBATCH -N 1                                 # Total number of nodes requested
@@ -15,5 +15,5 @@
 source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh
 conda activate pandorabayesopt_env
 wandb login
-wandb agent 'ziv-scully-group/Gittins for Bayesian Optimization/i6ozs6w1' --count 1
+wandb agent 'ziv-scully-group/Gittins for Bayesian Optimization/2152sb6h' --count 1
 conda deactivate
