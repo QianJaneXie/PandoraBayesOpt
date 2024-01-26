@@ -1,0 +1,31 @@
+name: BayesianRegret_FixedAmplitude_CostAware
+program: scripts/fixed_amplitude.py
+method: grid
+parameters:
+  kernel:
+    values: ["matern32", "matern52", "sq_exp"]
+  dim:
+    values: [1,2,4,8,16]
+  lengthscale:
+    values: [0.01,0.1,1.0]
+  amplitude:
+    values: [0.1,1.0,10.0]
+  num_rff_features:
+    value: 1280
+  seed:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+  normalization:
+    value: false
+  num_iterations:
+    value: 100
+  policy:
+    values:
+      - ExpectedImprovement
+      - ThompsonSampling
+      - PredictiveEntropySearch
+      - MultiStepExpectedImprovement
+      - Gittins_Lambda_10
+      - Gittins_Lambda_01
+      - Gittins_Lambda_001
+      - Gittins_Step
+      - Gittins_Step_EIPC

@@ -1,0 +1,28 @@
+name: Empirical_CostAware
+program: scripts/empirical_cost_aware.py
+method: grid
+parameters:
+  problem:
+    values: ['LDA','CNN','RFBoston','RobotPush3D']
+  seed:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+  normalization:
+    value: true
+  max_num_iterations:
+    value: 100
+  total_cost_budget:
+    value: 11.0
+  draw_initial_method:
+    values: ['sobol']
+  policy:
+    values:
+      - ExpectedImprovementPerCost
+      - ExpectedImprovement_UniformCost
+      - ExpectedImprovementPerCost_WithCooling
+      - BudgetedMultiStepExpectedImprovement
+      - Gittins_Lambda_10
+      - Gittins_Lambda_01
+      - Gittins_Lambda_001
+      - Gittins_Step
+      - Gittins_Step_EIPC
+
