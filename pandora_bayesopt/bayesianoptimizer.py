@@ -3,7 +3,8 @@ from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
-from .acquisition import GittinsIndex, ExpectedImprovementWithCost
+from .acquisition.gittins import GittinsIndex
+from .acquisition.ei_puc import ExpectedImprovementWithCost
 from botorch.optim import optimize_acqf
 from .utils import fit_gp_model
 import matplotlib.pyplot as plt
@@ -62,13 +63,15 @@ class BayesianOptimizer:
         
         model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
         
-        acqf_args = {'model': model, 'maximize': self.maximize}
+        acqf_args = {'model': model}
         
         if acquisition_function_class == ExpectedImprovement:
             acqf_args['best_f'] = self.best_f
+            acqf_args['maximize'] = self.maximize
 
         elif acquisition_function_class == ExpectedImprovementWithCost:
             acqf_args['best_f'] = self.best_f
+            acqf_args['maximize'] = self.maximize
             acqf_args['cost'] = self.cost
             if acqf_kwargs.get('cost_cooling') == True:
                 alpha = (self.budget - self.cumulative_cost) / self.budget
@@ -76,6 +79,7 @@ class BayesianOptimizer:
                 acqf_args['alpha'] = alpha
 
         elif acquisition_function_class == GittinsIndex:
+            acqf_args['maximize'] = self.maximize
             if acqf_kwargs.get('step_EIpu') == True:
                 if self.need_lmbda_update:
                     if callable(self.cost):
