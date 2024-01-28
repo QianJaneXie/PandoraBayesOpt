@@ -9,6 +9,10 @@ requirements = [
     "wandb>=0.16",
     "matplotlib>=3.7",
     "tqdm>=4.0",
+    "scikit-learn>=1.1",
+    "pandas>=2.2",
+    "ConfigSpace<=0.6.1",
+    "hpobench @ git+https://github.com/automl/HPOBench@0.0.10",
 ]
 
 setup(
@@ -16,7 +20,7 @@ setup(
     version="1.0",
     description="Experiments for Bayesian optimization with Pandora's box",
     author="Qian Xie and collaborators",
-    python_requires='>=3.11',
+    python_requires='>=3.9',
     packages=["pandora_bayesopt"],
     install_requires=requirements
 )
