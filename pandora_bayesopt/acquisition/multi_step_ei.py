@@ -10,7 +10,9 @@ from botorch.acquisition.multi_step_lookahead import qMultiStepLookahead
 from botorch.models.model import Model
 from botorch.sampling.base import MCSampler
 from botorch.sampling.normal import SobolQMCNormalSampler
-from torch import Tensor
+from torch import Tensor, Size
+
+from ..sampling.posterior_mean_sampler import PosteriorMeanSampler
 
 
 class MultiStepLookaheadEI(qMultiStepLookahead):
@@ -64,11 +66,9 @@ class MultiStepLookaheadEI(qMultiStepLookahead):
             # If collapse_fantasy_base_samples is False, the batch_range is updated during
             # the forward call.
             samplers: List[MCSampler] = [
-                PosteriorMeanSampler(collapse_batch_dims=True)
+                PosteriorMeanSampler(sample_shape=Size([nf]))
                 if nf == 1
-                else SobolQMCNormalSampler(
-                    num_samples=nf, resample=False, collapse_batch_dims=True
-                )
+                else SobolQMCNormalSampler(sample_shape=Size([nf]))
                 for nf in num_fantasies
             ]
 
