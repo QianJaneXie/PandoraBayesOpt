@@ -3,24 +3,24 @@ program: scripts/empirical.py
 method: grid
 parameters:
   problem:
-    values: ['LDA','CNN','RFBoston','RobotPush3D']
+    values: ['FreeSolv']
   seed:
-    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
-  normalization:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
+  input_normalization:
     value: true
-  num_iterations:
-    value: 50
   draw_initial_method:
     values: ['sobol']
   policy:
     values:
       - ExpectedImprovement
-      - ThompsonSampling
-      - PredictiveEntropySearch
-      - MultiStepExpectedImprovement
-      - Gittins_Lambda_10
+      # - ThompsonSampling
+      # - PredictiveEntropySearch
+      # - MultiStepExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
-      - Gittins_Step
-      - Gittins_Step_EIPC
+      - Gittins_Lambda_0001
+      - Gittins_Step_Divide2
+      - Gittins_Step_Divide5
+      - Gittins_Step_Divide10
+      - Gittins_Step_EIpu
 

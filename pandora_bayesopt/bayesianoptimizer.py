@@ -1,12 +1,13 @@
 import torch
-from botorch.fit import fit_gpytorch_model
-from gpytorch.mlls import ExactMarginalLogLikelihood
-from botorch.utils.sampling import draw_sobol_samples
+
 from botorch.acquisition import ExpectedImprovement
-from .acquisition import GittinsIndex, ExpectedImprovementWithCost
+from botorch.acquisition.multi_step_lookahead import warmstart_multistep
+
+from .acquisition.gittins import GittinsIndex
+from .acquisition.ei_puc import ExpectedImprovementWithCost
+from .acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.optim import optimize_acqf
 from .utils import fit_gp_model
-import matplotlib.pyplot as plt
 
 def plot_posterior(ax,objective_function,model,test_x,train_x,train_y):
     
@@ -44,6 +45,7 @@ class BayesianOptimizer:
         self.cumulative_cost = 0.0
         self.cost_history = [0.0]
         self.initialize_points(initial_points)
+        self.suggested_x_full_tree = None
         
         # GP model parameters
         self.input_standardize = input_standardize
@@ -62,13 +64,15 @@ class BayesianOptimizer:
         
         model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
         
-        acqf_args = {'model': model, 'maximize': self.maximize}
+        acqf_args = {'model': model}
         
         if acquisition_function_class == ExpectedImprovement:
             acqf_args['best_f'] = self.best_f
+            acqf_args['maximize'] = self.maximize
 
         elif acquisition_function_class == ExpectedImprovementWithCost:
             acqf_args['best_f'] = self.best_f
+            acqf_args['maximize'] = self.maximize
             acqf_args['cost'] = self.cost
             if acqf_kwargs.get('cost_cooling') == True:
                 alpha = (self.budget - self.cumulative_cost) / self.budget
@@ -76,8 +80,8 @@ class BayesianOptimizer:
                 acqf_args['alpha'] = alpha
 
         elif acquisition_function_class == GittinsIndex:
-            if acqf_kwargs.get('decay') == True:
-                alpha = acqf_kwargs.get('alpha')
+            acqf_args['maximize'] = self.maximize
+            if acqf_kwargs.get('step_EIpu') == True:
                 if self.need_lmbda_update:
                     if callable(self.cost):
                         # Optimize EIpu first to get new_point_EIpu
@@ -91,9 +95,9 @@ class BayesianOptimizer:
                             options={'method': 'L-BFGS-B'},
                         )
                         if self.current_lmbda == None:
-                            self.current_lmbda = new_point_EIpu.item() / alpha
+                            self.current_lmbda = new_point_EIpu.item() / 2
                         else:
-                            self.current_lmbda = min(self.current_lmbda, new_point_EIpu.item() / alpha)
+                            self.current_lmbda = min(self.current_lmbda, new_point_EIpu.item() / 2)
 
                     else:
                         # Optimize EI first to get new_point_EI
@@ -107,42 +111,18 @@ class BayesianOptimizer:
                             options={'method': 'L-BFGS-B'},
                         )
                         if self.current_lmbda == None:
-                            self.current_lmbda = new_point_EI.item() / alpha
+                            self.current_lmbda = new_point_EI.item() / 2
                         else:
-                            self.current_lmbda = min(self.current_lmbda, new_point_EI.item() / alpha)
+                            self.current_lmbda = min(self.current_lmbda, new_point_EI.item() / 2)
                     self.need_lmbda_update = False  # Reset the flag
                 print("current lambda:", self.current_lmbda)
                 acqf_args['lmbda'] = self.current_lmbda
                 self.lmbda_history.append(self.current_lmbda)
 
-            elif acqf_kwargs.get('halving') == True:
-                if self.current_lmbda == None:
-                    if callable(self.cost):
-                        # Optimize EIpu first to get new_point_EIpu
-                        EIpu = ExpectedImprovementWithCost(model=model, best_f=self.best_f, maximize=self.maximize, cost=self.cost)
-                        _, new_point_EIpu = optimize_acqf(
-                            acq_function=EIpu,
-                            bounds=self.bounds,
-                            q=1,
-                            num_restarts=20*self.dim,
-                            raw_samples=1024*self.dim,
-                            options={'method': 'L-BFGS-B'},
-                        )                    
-                        self.current_lmbda = new_point_EIpu.item() / 2
-                    else:
-                        # Optimize EI first to get new_point_EI
-                        EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
-                        _, new_point_EI = optimize_acqf(
-                            acq_function=EI,
-                            bounds=self.bounds,
-                            q=1,
-                            num_restarts=20*self.dim,
-                            raw_samples=1024*self.dim,
-                            options={'method': 'L-BFGS-B'},
-                        )
-                        self.current_lmbda = new_point_EI.item() / 2
-                else:
-                    self.current_lmbda = self.current_lmbda / 2
+            elif acqf_kwargs.get('step_divide') == True:
+                if self.need_lmbda_update:
+                    self.current_lmbda = self.current_lmbda / acqf_kwargs.get('alpha')
+                    self.need_lmbda_update = False
                 acqf_args['lmbda'] = self.current_lmbda
                 self.lmbda_history.append(self.current_lmbda)
 
@@ -150,21 +130,51 @@ class BayesianOptimizer:
                 acqf_args['lmbda'] = acqf_kwargs['lmbda']
 
             acqf_args['cost'] = self.cost
-
+        elif acquisition_function_class == MultiStepLookaheadEI:
+            acqf_args['batch_size'] = 1
+            acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
+            acqf_args['num_fantasies'] = [1, 1, 1]
         else:
             acqf_args.update(**acqf_kwargs)
             
         acq_function = acquisition_function_class(**acqf_args)
-
-        new_point, new_point_acq = optimize_acqf(
+        if self.suggested_x_full_tree is not None:
+            batch_initial_conditions = warmstart_multistep(
+                    acq_function=acq_function,
+                    bounds=self.bounds,
+                    num_restarts=10 * self.dim,
+                    raw_samples=200 * self.dim,
+                    full_optimizer=self.suggested_x_full_tree,
+                    algo_params=acqf_args,
+                )
+        else:
+            batch_initial_conditions = None
+        q = acq_function.get_augmented_q_batch_size(1) if acquisition_function_class == MultiStepLookaheadEI else 1
+        candidates, candidates_acq_vals = optimize_acqf(
             acq_function=acq_function,
             bounds=self.bounds,
-            q=1,
-            num_restarts=20*self.dim,
-            raw_samples=1024*self.dim,
-            options={'method': 'L-BFGS-B'},
+            q=q,
+            num_restarts=10 * self.dim,
+            raw_samples=200 * self.dim,
+            options={
+                    "batch_limit": 5,
+                    "maxiter": 200,
+                    "method": "L-BFGS-B",
+                },
+            batch_initial_conditions=batch_initial_conditions,
+            return_best_only=False,
+            return_full_tree=acquisition_function_class == MultiStepLookaheadEI,
         )
-        print("Acq value:", new_point_acq)
+
+        candidates =  candidates.detach()
+        if acquisition_function_class == MultiStepLookaheadEI:
+            # save all tree variables for multi-step initialization
+            self.suggested_x_full_tree = candidates.clone()
+            candidates = acq_function.extract_candidates(candidates)
+
+        best_idx = torch.argmax(candidates_acq_vals.view(-1), dim=0)
+        new_point = candidates[best_idx]
+        self.current_acq = candidates_acq_vals[best_idx]
         new_value = self.objective(new_point)
 
         self.x = torch.cat((self.x, new_point))
@@ -173,8 +183,8 @@ class BayesianOptimizer:
         self.update_cost(new_point)
 
         # Check if lmbda needs to be updated in the next iteration
-        if acquisition_function_class == GittinsIndex and acqf_kwargs.get('decay') == True:
-            if (self.maximize and new_point_acq.item() < self.best_f) or (not self.maximize and -new_point_acq.item() > self.best_f):
+        if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
+            if (self.maximize and self.current_acq.item() < self.best_f) or (not self.maximize and -self.current_acq.item() > self.best_f):
                 self.need_lmbda_update = True
 
 
@@ -192,18 +202,22 @@ class BayesianOptimizer:
     def print_iteration_info(self, iteration):
         print(f"Iteration {iteration}, New point: {self.x[-1].squeeze().detach().numpy()}, New value: {self.y[-1].item()}")
         print("Best observed value:", self.best_f)
+        print("Current acquisition value:", self.current_acq)
         print("Cumulative cost:", self.cumulative_cost)
+        if hasattr(self, 'need_lmbda_update'):
+            print("Gittins lmbda:", self.lmbda_history[-1])
         print()
 
     def run(self, num_iterations, acquisition_function_class, **acqf_kwargs):
         self.budget = num_iterations
         if acquisition_function_class == GittinsIndex:
-            if acqf_kwargs.get('decay') == True:
+            if acqf_kwargs.get('step_EIpu') == True:
                 self.current_lmbda = None
                 self.need_lmbda_update = True
                 self.lmbda_history = []
-            if acqf_kwargs.get('halving') == True:
-                self.current_lmbda = None
+            if acqf_kwargs.get('step_divide') == True:
+                self.current_lmbda = 0.1
+                self.need_lmbda_update = False
                 self.lmbda_history = []                
 
         for i in range(num_iterations):
@@ -213,18 +227,19 @@ class BayesianOptimizer:
     def run_until_budget(self, budget, acquisition_function_class, **acqf_kwargs):
         self.budget = budget
         if acquisition_function_class == GittinsIndex:
-            if acqf_kwargs.get('decay') == True:
+            if acqf_kwargs.get('step_EIpu') == True:
                 self.current_lmbda = None
                 self.need_lmbda_update = True
                 self.lmbda_history = []
-            if acqf_kwargs.get('halving') == True:
-                self.current_lmbda = None
-                self.lmbda_history = [] 
+            if acqf_kwargs.get('step_divide') == True:
+                self.current_lmbda = 0.1
+                self.need_lmbda_update = False
+                self.lmbda_history = []  
 
         i = 0
         while self.cumulative_cost < self.budget:
             self.iterate(acquisition_function_class, **acqf_kwargs)
-            # self.print_iteration_info(i)
+            self.print_iteration_info(i)
             i += 1
 
     def get_best_value(self):
