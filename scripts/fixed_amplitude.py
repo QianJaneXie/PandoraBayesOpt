@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
-import sys
-import scipy.io
-import pandas as pd
-
 import torch
-from pandora_bayesopt.utils import fit_gp_model
+from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum_scipy
+from gpytorch.kernels import MaternKernel, ScaleKernel
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
@@ -16,7 +12,6 @@ from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
 import matplotlib.pyplot as plt
 import wandb
-
 
 # use a GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,50 +22,67 @@ torch.set_default_dtype(torch.float64)
 def run_bayesopt_experiment(config):
     print(config)
 
-    problem = config['problem']
-    if problem == "FreeSolv":
-        dim = 3
-        maximize = True
-        
-        script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-        df = pd.read_csv(script_dir + "/data/freesolv/freesolv_NN_rep3dim.csv")
-        data_x_3D = torch.tensor(df[["x1", "x2", "x3"]].values, dtype=torch.float64)
-        data_y = torch.tensor(df["expt"], dtype=torch.float64)
-
-        # Fit the GP model using the data
-        objective_model = fit_gp_model(data_x_3D, data_y, input_standardize=True)
-        objective_model.load_state_dict(torch.load(script_dir + "/data/freesolv/freesolv_objective_model_state.pth"))
-        
-        # Define the objective function
-        scaled_constant = 10
-        def objective_function(X):
-            if X.ndim == 1:
-                X = X.unsqueeze(0)
-            posterior_X = objective_model.posterior(X)
-            objective_X = posterior_X.mean.detach()
-            return objective_X/scaled_constant
-        
-        global_optimum_value = 2.5591700836662685
-
-        num_iterations = 80
-
+    dim = config['dim']
+    lengthscale = config['lengthscale']
+    outputscale = config['amplitude']
+    maximize = True
+    if config['kernel'] == 'matern32':
+        nu = 1.5
+        if lengthsale == 1.0: 
+            num_iterations = 10*dim
+        elif lengthsale == 0.1:
+            num_iterations = 20*dim 
+        elif lengthsale == 0.01:
+            num_iterations = 30*dim
+    elif config['kernel'] == 'matern52':
+        nu = 2.5
+        if lengthsale == 1.0: 
+            num_iterations = 5*dim
+        elif lengthsale == 0.1:
+            num_iterations = 15*dim 
+        elif lengthsale == 0.01:
+            num_iterations = 25*dim 
+    num_rff_features = config['num_rff_features']
     seed = config['seed']
     torch.manual_seed(seed)
+    
+    # Create the objective function
+    objective_function = create_objective_function(
+        dim=dim, 
+        nu=nu, 
+        lengthscale=lengthscale,
+        outputscale=outputscale,
+        num_rff_features=num_rff_features
+    )
+
+    # Find the global optimum
+    global_optimum_point, global_optimum_value = find_global_optimum_scipy(objective=objective_function, dim=dim, maximize=maximize)
+    print("global_optimum", global_optimum_point, global_optimum_value)
+
+    # Set up the kernel
+    base_kernel = MaternKernel(nu=nu).double()
+    base_kernel.lengthscale = lengthscale
+    base_kernel.raw_lengthscale.requires_grad = False
+    scale_kernel = ScaleKernel(base_kernel).double()
+    scale_kernel.outputscale = torch.tensor([[outputscale]])
+    scale_kernel.raw_outputscale.requires_grad = False
+
+    # Test performance of different policies
     draw_initial_method = config['draw_initial_method']
     if draw_initial_method == 'sobol':
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
     input_standardize = config['input_normalization']
 
-    # Test performance of different policies
     policy = config['policy']
     print("policy:", policy)
-    
+
     Optimizer = BayesianOptimizer(
         objective=objective_function, 
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x, 
+        kernel=kernel,
         input_standardize=input_standardize
     )
     if policy == 'ExpectedImprovement':
@@ -143,12 +155,12 @@ def run_bayesopt_experiment(config):
     print("Regret history:", regret_history)
     print()
 
-    return (scaled_constant, cost_history, best_history, regret_history)
+    return (cost_history, best_history, regret_history)
 
 wandb.init()
-(scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": scaled_constant*regret, "log(regret)":np.log10(scaled_constant)+np.log10(regret)})
+    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "lg(regret)": np.log10(regret)})
 
 wandb.finish()

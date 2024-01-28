@@ -9,6 +9,9 @@ requirements = [
     "wandb>=0.16",
     "matplotlib>=3.7",
     "tqdm>=4.0",
+    "pandas>=1.0",
+    "notebook>=6.0"
+    "ipywidgets>=8.1.1"
 ]
 
 setup(

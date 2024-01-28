@@ -119,9 +119,9 @@ class BayesianOptimizer:
                 acqf_args['lmbda'] = self.current_lmbda
                 self.lmbda_history.append(self.current_lmbda)
 
-            elif acqf_kwargs.get('step_halving') == True:
+            elif acqf_kwargs.get('step_divide') == True:
                 if self.need_lmbda_update:
-                    self.current_lmbda = self.current_lmbda / 2
+                    self.current_lmbda = self.current_lmbda / acqf_kwargs.get('alpha')
                     self.need_lmbda_update = False
                 acqf_args['lmbda'] = self.current_lmbda
                 self.lmbda_history.append(self.current_lmbda)
@@ -183,7 +183,7 @@ class BayesianOptimizer:
         self.update_cost(new_point)
 
         # Check if lmbda needs to be updated in the next iteration
-        if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_halving') == True):
+        if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
             if (self.maximize and self.current_acq.item() < self.best_f) or (not self.maximize and -self.current_acq.item() > self.best_f):
                 self.need_lmbda_update = True
 
@@ -215,7 +215,7 @@ class BayesianOptimizer:
                 self.current_lmbda = None
                 self.need_lmbda_update = True
                 self.lmbda_history = []
-            if acqf_kwargs.get('step_halving') == True:
+            if acqf_kwargs.get('step_divide') == True:
                 self.current_lmbda = 0.1
                 self.need_lmbda_update = False
                 self.lmbda_history = []                
@@ -231,7 +231,7 @@ class BayesianOptimizer:
                 self.current_lmbda = None
                 self.need_lmbda_update = True
                 self.lmbda_history = []
-            if acqf_kwargs.get('step_halving') == True:
+            if acqf_kwargs.get('step_divide') == True:
                 self.current_lmbda = 0.1
                 self.need_lmbda_update = False
                 self.lmbda_history = []  

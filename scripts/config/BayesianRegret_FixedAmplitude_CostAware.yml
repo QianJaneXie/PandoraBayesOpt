@@ -1,4 +1,4 @@
-name: BayesianRegret_FixedAmplitude
+name: BayesianRegret_FixedAmplitude_CostAware
 program: scripts/fixed_amplitude_cost_aware.py
 method: grid
 parameters:
@@ -7,19 +7,19 @@ parameters:
   dim:
     values: [1,2,4,8,16]
   lengthscale:
-    values: [0.01,0.1,1.0,10]
+    values: [0.01,0.1,1.0]
   amplitude:
     values: [0.1,1.0,10.0]
   num_rff_features:
     value: 1280
   seed:
-    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
-  normalization:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+  input_ormalization:
     value: false
   max_num_iterations:
     value: 100
   total_cost_budget:
-    value: 11.0
+    value: 10.0
   policy:
     values:
       - ExpectedImprovementPerCost
@@ -30,6 +30,6 @@ parameters:
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Step
-      - Gittins_Step_EIPC
+      - Gittins_Step_EIpu
   costs:
     values: ['periodic','linear','bump']
