@@ -1,13 +1,13 @@
 import torch
-from botorch.fit import fit_gpytorch_model
-from gpytorch.mlls import ExactMarginalLogLikelihood
-from botorch.utils.sampling import draw_sobol_samples
+
 from botorch.acquisition import ExpectedImprovement
+from botorch.acquisition.multi_step_lookahead import warmstart_multistep
+
 from .acquisition.gittins import GittinsIndex
 from .acquisition.ei_puc import ExpectedImprovementWithCost
+from .acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.optim import optimize_acqf
 from .utils import fit_gp_model
-import matplotlib.pyplot as plt
 
 def plot_posterior(ax,objective_function,model,test_x,train_x,train_y):
     
@@ -45,6 +45,7 @@ class BayesianOptimizer:
         self.cumulative_cost = 0.0
         self.cost_history = [0.0]
         self.initialize_points(initial_points)
+        self.suggested_x_full_tree = None
         
         # GP model parameters
         self.input_standardize = input_standardize
@@ -129,21 +130,51 @@ class BayesianOptimizer:
                 acqf_args['lmbda'] = acqf_kwargs['lmbda']
 
             acqf_args['cost'] = self.cost
-
+        elif acquisition_function_class == MultiStepLookaheadEI:
+            acqf_args['batch_size'] = 1
+            acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
+            acqf_args['num_fantasies'] = [1, 1, 1]
         else:
             acqf_args.update(**acqf_kwargs)
             
         acq_function = acquisition_function_class(**acqf_args)
-
-        new_point, new_point_acq = optimize_acqf(
+        if self.suggested_x_full_tree is not None:
+            batch_initial_conditions = warmstart_multistep(
+                    acq_function=acq_function,
+                    bounds=self.bounds,
+                    num_restarts=10 * self.dim,
+                    raw_samples=200 * self.dim,
+                    full_optimizer=self.suggested_x_full_tree,
+                    algo_params=acqf_args,
+                )
+        else:
+            batch_initial_conditions = None
+        q = acq_function.get_augmented_q_batch_size(1) if acquisition_function_class == MultiStepLookaheadEI else 1
+        candidates, candidates_acq_vals = optimize_acqf(
             acq_function=acq_function,
             bounds=self.bounds,
-            q=1,
-            num_restarts=20*self.dim,
-            raw_samples=1024*self.dim,
-            options={'method': 'L-BFGS-B'},
+            q=q,
+            num_restarts=10 * self.dim,
+            raw_samples=200 * self.dim,
+            options={
+                    "batch_limit": 5,
+                    "maxiter": 200,
+                    "method": "L-BFGS-B",
+                },
+            batch_initial_conditions=batch_initial_conditions,
+            return_best_only=False,
+            return_full_tree=acquisition_function_class == MultiStepLookaheadEI,
         )
-        self.current_acq = new_point_acq
+
+        candidates =  candidates.detach()
+        if acquisition_function_class == MultiStepLookaheadEI:
+            # save all tree variables for multi-step initialization
+            self.suggested_x_full_tree = candidates.clone()
+            candidates = acq_function.extract_candidates(candidates)
+
+        best_idx = torch.argmax(candidates_acq_vals.view(-1), dim=0)
+        new_point = candidates[best_idx]
+        self.current_acq = candidates_acq_vals[best_idx]
         new_value = self.objective(new_point)
 
         self.x = torch.cat((self.x, new_point))
