@@ -111,9 +111,9 @@ class BayesianOptimizer:
                             options={'method': 'L-BFGS-B'},
                         )
                         if self.current_lmbda == None:
-                            self.current_lmbda = new_point_EI.item() / alpha
+                            self.current_lmbda = new_point_EI.item() / 2
                         else:
-                            self.current_lmbda = min(self.current_lmbda, new_point_EI.item() / alpha)
+                            self.current_lmbda = min(self.current_lmbda, new_point_EI.item() / 2)
                     self.need_lmbda_update = False  # Reset the flag
                 print("current lambda:", self.current_lmbda)
                 acqf_args['lmbda'] = self.current_lmbda

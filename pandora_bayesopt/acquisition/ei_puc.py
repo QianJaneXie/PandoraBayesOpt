@@ -8,7 +8,7 @@ class ExpectedImprovementWithCost(AnalyticAcquisitionFunction):
     factor that reduces or increases the emphasis of the cost function c(x).
     """
 
-    def __init__(self, model, best_f, maximize, cost, alpha=1):
+    def __init__(self, model, best_f, maximize, cost, alpha=1.0):
         super().__init__(model=model)
         self.model = model
         self.cost = cost
