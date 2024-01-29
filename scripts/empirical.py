@@ -38,8 +38,8 @@ def run_bayesopt_experiment(config):
         data_y = torch.tensor(df["expt"], dtype=torch.float64)
 
         # Fit the GP model using the data
+        torch.manual_seed(0)
         objective_model = fit_gp_model(data_x_3D, data_y, input_standardize=True)
-        objective_model.load_state_dict(torch.load(script_dir + "/data/freesolv/freesolv_objective_model_state.pth"))
         
         # Define the objective function
         scaled_constant = 10

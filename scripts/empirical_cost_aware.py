@@ -41,21 +41,9 @@ def run_bayesopt_experiment(config):
         objective_X = -torch.tensor(data[:, 3]).unsqueeze(-1)
         cost_X = torch.tensor(data[:, 4]).unsqueeze(-1) / 3600.0
         
+        torch.manual_seed(0)
         objective_model = fit_gp_model(X, objective_X, input_standardize=True)
-        objective_model_state_dict = torch.load(script_dir + '/data/lda/lda_objective_model_state.pth')
-        objective_model_state_dict['outcome_transform._is_trained'] = torch.tensor(True)
         
-        # List of keys to remove
-        keys_to_remove = [
-            "likelihood.noise_covar.raw_noise",
-            "likelihood.noise_covar.raw_noise_constraint.lower_bound",
-            "likelihood.noise_covar.raw_noise_constraint.upper_bound"
-        ]
-        # Remove the keys
-        for key in keys_to_remove:
-            if key in objective_model_state_dict:
-                del objective_model_state_dict[key]
-        objective_model.load_state_dict(objective_model_state_dict)
         
         # Define the objective function
         scaled_constant = 1000
@@ -66,16 +54,11 @@ def run_bayesopt_experiment(config):
             objective_X = posterior_X.mean.detach()
             return objective_X/scaled_constant
         
-        global_optimum_value = -1.260419158428836
+        global_optimum_value = -1.2606842790227435
 
         log_cost_X = torch.log(cost_X)
         log_cost_model = fit_gp_model(X, log_cost_X, input_standardize=True)
-        log_cost_model_state_dict = torch.load(script_dir + '/data/lda/lda_log_cost_model_state.pth')
-        log_cost_model_state_dict['outcome_transform._is_trained'] = torch.tensor(True)
-        for key in keys_to_remove:
-            if key in log_cost_model_state_dict:
-                del log_cost_model_state_dict[key]
-        log_cost_model.load_state_dict(log_cost_model_state_dict)
+        
         
         # Define the cost function
         def cost_function(X):
@@ -139,11 +122,26 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'Gittins_Step':
+    elif policy == 'Gittins_Step_Divide2':
         Optimizer.run_until_budget(
-            budget=budget, 
+            budget = budget, 
             acquisition_function_class=GittinsIndex,
-            step_halving = True
+            step_divide = True,
+            alpha = 2
+        )
+    elif policy == 'Gittins_Step_Divide5':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 5
+        )
+    elif policy == 'Gittins_Step_Divide10':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 10
         )
     elif policy == 'Gittins_Step_EIpu':
         Optimizer.run_until_budget(
