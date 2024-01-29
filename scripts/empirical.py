@@ -78,17 +78,6 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'ExpectedImprovementWithCost_Uniform':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class = ExpectedImprovementWithCost
-        )
-    elif policy == 'ExpectedImprovementWithCost_Cooling':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class = ExpectedImprovementWithCost,
-            cost_cooling = True
-        )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run(
             num_iterations=num_iterations, 

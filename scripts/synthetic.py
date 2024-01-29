@@ -29,36 +29,31 @@ def run_bayesopt_experiment(config):
     policy = config['policy']
     print("policy:", policy)
     num_iterations = config['num_iterations']
-    maximize = False
-    global_optimum = config["global_optimum"]
+    maximize = True
 
     if problem == 'Ackley':
         ackley_function = Ackley(dim=dim)
         def objective_function(X):
-            return ackley_function(2*X-1)
+            return -ackley_function(2*X-1)
+        global_optimum_value = 0
     if problem == 'DropWave':
         dropwave_function = DropWave()
         def objective_function(X):
-            return dropwave_function(10.24*X-5.12)
+            return -dropwave_function(10.24*X-5.12)
     if problem == 'Shekel5':
         shekel_function = Shekel(m=5)
         def objective_function(X):
-            return shekel_function(10*X)
+            return -shekel_function(10*X)
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
         def objective_function(X):
-            return rosenbrock_function(15*X-5)
+            return -rosenbrock_function(15*X-5)
     if problem == 'Levy':
         levy_function = Levy(dim=dim)
         def objective_function(X):
-            return levy_function(20*X-10)
+            return -levy_function(20*X-10)
 
     # Test performance of different policies
-    if draw_initial_method == 'rand':
-        init_x = torch.rand(dim).unsqueeze(0)
-        num_iterations = num_iterations+5*dim
-    if draw_initial_method == 'multi-rand':
-        init_x = torch.rand(2*dim+1, dim)
     if draw_initial_method == 'sobol':
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*dim+1).squeeze(0)
@@ -70,44 +65,55 @@ def run_bayesopt_experiment(config):
         initial_points=init_x,
         input_standardize=True
     )
-    if policy == 'EI':
+    if policy == 'ExpectedImprovement':
         Optimizer.run(
             num_iterations=num_iterations, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'GIhalving':
+    elif policy == 'Gittins_Lambda_01':
         Optimizer.run(
-            num_iterations=num_iterations,
-            acquisition_function_class=GittinsIndex,
-            halving=True
+            num_iterations=num_iterations, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.01
         )
-    elif policy == 'GIdecay2':
+    elif policy == 'Gittins_Lambda_001':
         Optimizer.run(
-            num_iterations=num_iterations,
-            acquisition_function_class=GittinsIndex,
-            decay=True,
-            alpha=2
+            num_iterations = num_iterations, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.001
         )
-    elif policy == 'GIdecay8':
+    elif policy == 'Gittins_Lambda_0001':
         Optimizer.run(
-            num_iterations=num_iterations,
-            acquisition_function_class=GittinsIndex,
-            decay=True,
-            alpha=8
+            num_iterations = num_iterations, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.0001
         )
-    elif policy == 'GIdecay32':
+    elif policy == 'Gittins_Step_Divide2':
         Optimizer.run(
-            num_iterations=num_iterations,
+            num_iterations=num_iterations, 
             acquisition_function_class=GittinsIndex,
-            decay=True,
-            alpha=32
+            step_divide = True,
+            alpha = 2
         )
-    elif policy == 'GIdecay128':
+    elif policy == 'Gittins_Step_Divide5':
         Optimizer.run(
-            num_iterations=num_iterations,
+            num_iterations=num_iterations, 
             acquisition_function_class=GittinsIndex,
-            decay=True,
-            alpha=128
+            step_divide = True,
+            alpha = 5
+        )
+    elif policy == 'Gittins_Step_Divide10':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 10
+        )
+    elif policy == 'Gittins_Step_EIpu':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=GittinsIndex,
+            step_EIpu = True
         )
     
     cost_history = Optimizer.get_cost_history()
