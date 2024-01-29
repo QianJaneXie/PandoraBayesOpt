@@ -15,5 +15,5 @@
 source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh
 conda activate pandorabayesopt_env
 wandb login
-wandb agent 'ziv-scully-group/Gittins for Bayesian Optimization/87z7pt0d' --count 1
+wandb agent 'ziv-scully-group/Gittins for Bayesian Optimization/iosb7grl' --count 1
 conda deactivate
