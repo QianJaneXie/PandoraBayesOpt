@@ -5,37 +5,27 @@ parameters:
   kernel:
     values: ["matern32", "matern52"]
   dim:
-    values: [1,2,4,8,16]
+    values: [1]
   lengthscale:
     values: [0.01]
+  amplitude:
+    values: [1.0]
   num_rff_features:
     value: 1280
   seed:
-    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49]
   input_normalization:
-    value: false
-  max_num_iterations:
-    value: 100
-  draw_initial_method:
-    values: ['deterministic_boundary']
-  total_cost_budget:
-    value: 11.0
+    value: False
   policy:
     values:
-      - ExpectedImprovementPerCost
-      - ExpectedImprovement_UniformCost
-      - ExpectedImprovementPerCost_WithCooling
-      - BudgetedMultiStepExpectedImprovement
-      - Gittins_Lambda_10
+      - ExpectedImprovement
+      - ExpectedImprovementWithCost_Uniform
+      - ExpectedImprovementWithCost_Cooling
+      # - BudgetedMultiStepExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
-      - Gittins_Step
-      - Gittins_Step_EIPC
-  costs:
-    values: ['hard_for_eipc','hard_for_ei','hard_for_both']
-  cost_function_epsilon:
-    value: 0.1
-  cost_function_delta:
-    value: 10
-  cost_function_width:
-    value: 0.001
+      - Gittins_Lambda_0001
+      - Gittins_Step_Divide2
+      - Gittins_Step_EIpu
+  problem:
+    values: ['hard_for_eipc']
