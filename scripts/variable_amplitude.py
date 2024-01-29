@@ -6,8 +6,11 @@
 
 import torch
 from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum
+from gpytorch.kernels import MaternKernel
+from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from botorch.acquisition import ExpectedImprovement
-from pandora_bayesopt.acquisition import ExpectedImprovementWithCost, GittinsIndex
+from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
+from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,27 +36,38 @@ def run_bayesopt_experiment(config):
         nu = 2.5  
     lengthscale = config['lengthscale']
     outputscale = config['amplitude']
-    epsilon = config['cost_function_epsilon'] # 0.1
-    delta = config['cost_function_delta'] # 10
-    cost_function_width = config['cost_function_width'] # 0.001
     num_rff_features = config['num_rff_features']
+    problem = config['problem']
+    if problem == 'hard_for_eipc':
+        cost_function_epsilon = 0.1
+        cost_function_delta = 1.0
+        amplitude_function_width = 0.001
+        cost_function_width = 0.001
+        budget = 4.0
     seed = config['seed']
     torch.manual_seed(seed)
+    input_standardize = config['input_normalization']
     policy = config['policy']
     print("policy:", policy)
     maximize = True
 
-    # Define the functions for the amplitude and the cost
+    def squared_euclidean_distance(x, center):
+        # Calculate the squared Euclidean distance
+        return torch.sum((x - center) ** 2, dim=-1)
+
     def amplitude_function(x):
-        width = cost_function_width # Width of the bump to cover only the central point
-        amplitude = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * (1 - epsilon**2) + epsilon**2
-        return amplitude.squeeze(-1)
+        center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
+        dist_squared = squared_euclidean_distance(x, center)
+        amplitude = torch.exp(-dist_squared / (2 * amplitude_function_width**2)) * (1 - cost_function_epsilon**2) + cost_function_epsilon**2
+        return amplitude
 
     def cost_function(x):
-        width = cost_function_width  # Width of the bump to cover only the central point
-        peak_height = 1 + delta - epsilon
-        cost = torch.exp(-((x - 0.5)**2) / (2 * width**2)) * peak_height + epsilon
-        return cost.squeeze(-1)
+        center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
+        width = cost_function_width
+        peak_height = 1 + cost_function_delta - cost_function_epsilon
+        dist_squared = squared_euclidean_distance(x, center)
+        cost = torch.exp(-dist_squared / (2 * width**2)) * peak_height + cost_function_epsilon
+        return cost
     
     # Create the objective function
     matern_sample = create_objective_function(
@@ -82,7 +96,6 @@ def run_bayesopt_experiment(config):
     kernel = VariableAmplitudeKernel(base_kernel, amplitude_function)
 
     # Test performance of different policies
-    budget = config['budget']
     init_x = torch.zeros(dim).unsqueeze(0)
     Optimizer = BayesianOptimizer(
         objective=objective_function, 
@@ -90,36 +103,55 @@ def run_bayesopt_experiment(config):
         maximize=maximize, 
         initial_points=init_x, 
         kernel=kernel, 
-        cost=cost_function
+        cost=cost_function,
+        input_standardize=input_standardize
     )
-    if policy == 'EI':
+    if policy == 'ExpectedImprovement':
         Optimizer.run_until_budget(
-            budget=budget, 
+            budget = budget, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'EIpu':
+    elif policy == 'ExpectedImprovementWithCost_Uniform':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost
         )
-    elif policy == 'EIcool':
+    elif policy == 'ExpectedImprovementWithCost_Cooling':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost,
             cost_cooling = True
         )
-    elif policy == 'GIlmbda':
+    elif policy == 'Gittins_Lambda_01':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.01
+        )
+    elif policy == 'Gittins_Lambda_001':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.001
+        )
+    elif policy == 'Gittins_Lambda_0001':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'GIdecay':
+    elif policy == 'Gittins_Step_Divide2':
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=GittinsIndex,
-            decay = True,
-            alpha = 128
+            step_divide = True,
+            alpha = 2
+        )
+    elif policy == 'Gittins_Step_EIpu':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            step_EIpu = True
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
@@ -141,17 +173,17 @@ for x, y, c in zip(test_pts, obj_val, cost_val):
 wandb.log({"global optimum point": global_optimum_point, "global optimum value": global_optimum_value})
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log(regret)})
+    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw lg(regret)":np.log10(regret)})
 
 interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_best = interp_func_best(interp_cost)
 interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_regret = interp_func_regret(interp_cost)
-interp_func_log_regret = interp1d(cost_history, list(np.log(regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_func_log_regret = interp1d(cost_history, list(np.log10(regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_log_regret = interp_func_log_regret(interp_cost)
 
 for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
-    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "log(regret)": log_regret})
+    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "lg(regret)": log_regret})
 
 wandb.finish()
