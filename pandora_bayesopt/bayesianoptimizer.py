@@ -4,10 +4,12 @@ from botorch.acquisition.multi_step_lookahead import warmstart_multistep
 from .acquisition.gittins import GittinsIndex
 from .acquisition.ei_puc import ExpectedImprovementWithCost
 from .acquisition.multi_step_ei import MultiStepLookaheadEI
+from .acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from botorch.sampling.pathwise import draw_matheron_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
 from botorch.optim import optimize_acqf
+from copy import copy
 from .utils import fit_gp_model
 
 def plot_posterior(ax,objective_function,model,test_x,train_x,train_y):
@@ -56,6 +58,8 @@ class BayesianOptimizer:
         self.x = initial_points
         self.y = self.objective(initial_points)
         self.update_best()
+        if callable(self.cost):
+            self.c = self.cost(initial_points)
 
     def update_best(self):
         self.best_f = self.y.max().item() if self.maximize else self.y.min().item()
@@ -64,6 +68,7 @@ class BayesianOptimizer:
     def iterate(self, acquisition_function_class, **acqf_kwargs):
         
         model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
+        is_ms = False
 
         if acquisition_function_class == "ThompsonSampling":
             
@@ -155,6 +160,15 @@ class BayesianOptimizer:
 
                 acqf_args['cost'] = self.cost
             elif acquisition_function_class == MultiStepLookaheadEI:
+                is_ms = True
+                acqf_args['batch_size'] = 1
+                acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
+                acqf_args['num_fantasies'] = [1, 1, 1]
+            elif acquisition_function_class == BudgetedMultiStepLookaheadEI:
+                is_ms = True
+                acqf_args['cost_function'] = copy(self.cost)
+                acqf_args['budget_plus_cumulative_cost'] = min(self.budget - self.cumulative_cost, self.c[-4:].sum().item()) + self.c.sum().item()
+                print(acqf_args['budget_plus_cumulative_cost'])
                 acqf_args['batch_size'] = 1
                 acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
                 acqf_args['num_fantasies'] = [1, 1, 1]
@@ -173,7 +187,7 @@ class BayesianOptimizer:
                     )
             else:
                 batch_initial_conditions = None
-            q = acq_function.get_augmented_q_batch_size(1) if acquisition_function_class == MultiStepLookaheadEI else 1
+            q = acq_function.get_augmented_q_batch_size(1) if is_ms else 1
             candidates, candidates_acq_vals = optimize_acqf(
                 acq_function=acq_function,
                 bounds=self.bounds,
@@ -187,12 +201,12 @@ class BayesianOptimizer:
                     },
                 batch_initial_conditions=batch_initial_conditions,
                 return_best_only=False,
-                return_full_tree=acquisition_function_class == MultiStepLookaheadEI,
+                return_full_tree=is_ms,
             )
 
             candidates =  candidates.detach()
             
-            if acquisition_function_class == MultiStepLookaheadEI:
+            if is_ms:
                 # save all tree variables for multi-step initialization
                 self.suggested_x_full_tree = candidates.clone()
                 candidates = acq_function.extract_candidates(candidates)
@@ -218,6 +232,7 @@ class BayesianOptimizer:
         if callable(self.cost):
             # If self.cost is a function, call it and update cumulative cost
             cost = self.cost(new_point)
+            self.c = torch.cat((self.c, cost))
             self.cumulative_cost += cost.sum().item()
         else:
             # If self.cost is not a function, just increment cumulative cost by self.cost
