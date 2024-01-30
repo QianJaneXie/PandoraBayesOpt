@@ -15,7 +15,7 @@ parameters:
       - ExpectedImprovement
       # - ThompsonSampling
       # - PredictiveEntropySearch
-      # - MultiStepExpectedImprovement
+      # - MultiStepLookaheadEI
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001

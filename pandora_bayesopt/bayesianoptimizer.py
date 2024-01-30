@@ -7,6 +7,7 @@ from .acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.sampling.pathwise import draw_matheron_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.optim import optimize_acqf
 from .utils import fit_gp_model
 

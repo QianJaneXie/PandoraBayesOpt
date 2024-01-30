@@ -78,6 +78,26 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=ExpectedImprovement
         )
+    elif policy == 'ThompsonSampling':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class="ThompsonSampling"
+        )
+    elif policy == 'PredictiveEntropySearch':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=qPredictiveEntropySearch
+        )
+    elif policy == 'KnowledgeGradient':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=qKnowledgeGradient
+        )
+    elif policy == 'MultiStepLookaheadEI':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=MultiStepLookaheadEI
+        )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run(
             num_iterations=num_iterations, 
@@ -135,6 +155,7 @@ def run_bayesopt_experiment(config):
     return (scaled_constant, cost_history, best_history, regret_history)
 
 wandb.init()
+
 (scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
