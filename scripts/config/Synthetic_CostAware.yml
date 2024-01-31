@@ -5,26 +5,24 @@ parameters:
   problem:
     values: ["Ackley_5D", "DropWave_2D", "Shekel5_4D", "Levy_5D", "Rosenbrock_5D"]
   seed:
-    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]
   normalization:
-    values: [true,false]
-  max_num_iterations:
-    value: 100
+    values: [true]
   total_cost_budget:
-    value: 11.0
+    value: 60
   draw_initial_method:
     values: ['sobol']
   policy:
     values:
-      - ExpectedImprovementPerCost
-      - ExpectedImprovement_UniformCost
-      - ExpectedImprovementPerCost_WithCooling
+      - ExpectedImprovement
+      - ExpectedImprovementWithCost_Uniform
+      - ExpectedImprovementWithCost_Cooling
       - BudgetedMultiStepExpectedImprovement
-      - Gittins_Lambda_10
       - Gittins_Lambda_01
       - Gittins_Lambda_001
-      - Gittins_Step
-      - Gittins_Step_EIPC
-  costs:
-    values: ['periodic','linear','bump','optimum']
+      - Gittins_Lambda_0001
+      - Gittins_Step_Divide2
+      - Gittins_Step_Divide5
+      - Gittins_Step_Divide10
+      - Gittins_Step_EIpu
 

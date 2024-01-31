@@ -67,7 +67,7 @@ def run_bayesopt_experiment(config):
         levy_function = Levy(dim=dim)
         scaled_constant = -100
         def objective_function(X):
-            return scaled_constant*levy_function(20*X-10)/scaled_constant
+            return levy_function(20*X-10)/scaled_constant
         global_optimum_value = 0
 
     # Test performance of different policies

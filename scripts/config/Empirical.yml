@@ -13,9 +13,10 @@ parameters:
   policy:
     values:
       - ExpectedImprovement
-      # - ThompsonSampling
+      - ThompsonSampling
       # - PredictiveEntropySearch
-      # - MultiStepLookaheadEI
+      - KnowledgeGradient
+      - MultiStepLookaheadEI
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001

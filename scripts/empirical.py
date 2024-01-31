@@ -9,9 +9,15 @@ import pandas as pd
 import torch
 from pandora_bayesopt.utils import fit_gp_model
 from botorch.utils.sampling import draw_sobol_samples
+from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
+from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement
+from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
+from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
+from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
+
 
 import numpy as np
 import matplotlib.pyplot as plt

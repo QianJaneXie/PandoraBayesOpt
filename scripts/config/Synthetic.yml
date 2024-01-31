@@ -3,9 +3,9 @@ program: scripts/synthetic.py
 method: grid
 parameters:
   problem:
-    values: ['Shekel5_4D', 'Rosenbrock_5D', 'Levy_5D']
+    values: ['Ackley_5D', 'Shekel5_4D', 'Rosenbrock_5D', 'Levy_5D']
   seed:
-    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
   input_normalization:
     values: [True]
   num_iterations:
