@@ -2,28 +2,28 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
-import torch
 from botorch.acquisition.multi_step_lookahead import qMultiStepLookahead
-from botorch.acquisition.objective import LinearMCObjective, ScalarizedObjective
 from botorch.models.model import Model
-from botorch.sampling.samplers import MCSampler, SobolQMCNormalSampler
-from budgeted_bo.acquisition_functions.budgeted_ei import (
-    BudgetedExpectedImprovement,
-    qBudgetedExpectedImprovement,
-)
-from budgeted_bo.samplers import PosteriorMeanSampler
-from torch import Tensor
+from botorch.sampling.base import MCSampler
+from botorch.sampling.normal import SobolQMCNormalSampler
+from torch import Tensor, Size
 from torch.nn import Module
 
+import torch
 
-class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
+from .budgeted_ei import BudgetedExpectedImprovement
+from ..sampling.posterior_mean_sampler import PosteriorMeanSampler
+
+
+class BudgetedMultiStepLookaheadEI(qMultiStepLookahead):
     r"""Budget-Constrained Multi-Step Look-Ahead Expected Improvement (one-shot optimization)."""
 
     def __init__(
         self,
         model: Model,
+        cost_function: Callable,
         budget_plus_cumulative_cost: Union[float, Tensor],
         batch_size: int,
         lookahead_batch_sizes: List[int],
@@ -53,6 +53,7 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
                 will be applied on fantasy batch dimensions as well, meaning that base
                 samples are the same in all subtrees starting from the same level.
         """
+        self.cost_function = cost_function
         self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
         self.batch_size = batch_size
         batch_sizes = [batch_size] + lookahead_batch_sizes
@@ -64,21 +65,16 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
         use_mc_val_funcs = any(bs != 1 for bs in batch_sizes)
 
         if use_mc_val_funcs:
-            objective = LinearMCObjective(weights=weights)
-
-            valfunc_cls = [qBudgetedExpectedImprovement for _ in batch_sizes]
-
+            valfunc_cls = [BudgetedExpectedImprovement for _ in batch_sizes]
             inner_mc_samples = [128 for bs in batch_sizes]
         else:
-            objective = ScalarizedObjective(weights=weights)
-
             valfunc_cls = [BudgetedExpectedImprovement for _ in batch_sizes]
-
             inner_mc_samples = None
 
         valfunc_argfacs = [
             budgeted_ei_argfac(
-                budget_plus_cumulative_cost=self.budget_plus_cumulative_cost
+                budget_plus_cumulative_cost=self.budget_plus_cumulative_cost,
+                cost_function=self.cost_function,
             )
             for _ in batch_sizes
         ]
@@ -90,11 +86,9 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
             # If collapse_fantasy_base_samples is False, the batch_range is updated during
             # the forward call.
             samplers: List[MCSampler] = [
-                PosteriorMeanSampler(collapse_batch_dims=True)
+                PosteriorMeanSampler(sample_shape=Size([nf]))
                 if nf == 1
-                else SobolQMCNormalSampler(
-                    num_samples=nf, resample=False, collapse_batch_dims=True
-                )
+                else SobolQMCNormalSampler(sample_shape=Size([nf]))
                 for nf in num_fantasies
             ]
 
@@ -104,7 +98,6 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
             samplers=samplers,
             valfunc_cls=valfunc_cls,
             valfunc_argfacs=valfunc_argfacs,
-            objective=objective,
             inner_mc_samples=inner_mc_samples,
             X_pending=X_pending,
             collapse_fantasy_base_samples=collapse_fantasy_base_samples,
@@ -114,22 +107,21 @@ class BudgetedMultiStepExpectedImprovement(qMultiStepLookahead):
 class budgeted_ei_argfac(Module):
     r"""Extract the best observed value and reamaining budget from the model."""
 
-    def __init__(self, budget_plus_cumulative_cost: Union[float, Tensor]) -> None:
+    def __init__(self, budget_plus_cumulative_cost: Union[float, Tensor], cost_function: Callable) -> None:
         super().__init__()
         self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
+        self.cost_function = cost_function
 
     def forward(self, model: Model, X: Tensor) -> Dict[str, Any]:
-        y = torch.transpose(model.train_targets, -2, -1)
+        x = model.train_inputs[0]
+        y = model.train_targets
         y_original_scale = model.outcome_transform.untransform(y)[0]
-        obj_vals = y_original_scale[..., 0]
-        log_costs = y_original_scale[..., 1]
-        costs = torch.exp(log_costs)
-        current_budget = self.budget_plus_cumulative_cost - costs.sum(
-            dim=-1, keepdim=True
-        )
-
+        obj_vals = y_original_scale
+        costs = self.cost_function(x)
+        current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=False)
         params = {
-            "best_f": obj_vals.max(dim=-1, keepdim=True).values,
+            "best_f": obj_vals.max(dim=-1, keepdim=False).values,
             "budget": current_budget,
+            "cost_function": self.cost_function,
         }
         return params
