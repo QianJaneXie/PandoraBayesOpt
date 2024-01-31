@@ -27,13 +27,14 @@ torch.set_default_dtype(torch.float64)
 def run_bayesopt_experiment(config):
     print(config)
 
-    problem = config['problem']
-    seed = config['seed']
+    problem = 'Levy_5D'
+    seed = 42
     torch.manual_seed(seed)
-    input_standardize = config['input_normalization']
-    draw_initial_method = config['draw_initial_method']
-    policy = config['policy']
-    budget = config['total_cost_budget']
+    input_standardize = True
+    draw_initial_method = 'sobol'
+    policy = 'BudgetedMultiStepLookaheadEI'
+    print("policy:", policy)
+    budget = 1
     maximize = True
 
     a = torch.tensor([1.1969])
@@ -203,11 +204,7 @@ def run_bayesopt_experiment(config):
 
     return (budget, scaled_constant, cost_history, best_history, regret_history)
 
-wandb.init()
 (budget, scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
-
-for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": scaled_constant*best, "raw regret": -scaled_constant*regret, "raw log(regret)":np.log10(-scaled_constant)+np.log10(regret)})
 
 interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
@@ -216,8 +213,3 @@ interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bound
 interp_regret = interp_func_regret(interp_cost)
 interp_func_log_regret = interp1d(cost_history, list(np.log10(regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_log_regret = interp_func_log_regret(interp_cost)
-
-for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": -scaled_constant*regret, "lg(regret)": np.log10(-scaled_constant)+log_regret})
-
-wandb.finish()

@@ -6,8 +6,8 @@ parameters:
     values: ["Ackley_5D", "DropWave_2D", "Shekel5_4D", "Levy_5D", "Rosenbrock_5D"]
   seed:
     values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]
-  normalization:
-    values: [true]
+  input_normalization:
+    values: [True]
   total_cost_budget:
     value: 60
   draw_initial_method:
@@ -17,7 +17,7 @@ parameters:
       - ExpectedImprovement
       - ExpectedImprovementWithCost_Uniform
       - ExpectedImprovementWithCost_Cooling
-      - BudgetedMultiStepExpectedImprovement
+      - BudgetedMultiStepLookaheadEI
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
