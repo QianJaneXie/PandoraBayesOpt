@@ -4,9 +4,14 @@
 import os
 import sys
 import scipy.io
+import numpy as np
 import pandas as pd
+from hpobench.benchmarks.ml.tabular_benchmark import TabularBenchmark
+from ConfigSpace.hyperparameters import OrdinalHyperparameter
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 import torch
+from typing import Dict
 from pandora_bayesopt.utils import fit_gp_model
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
@@ -18,8 +23,6 @@ from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySear
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
-
-import numpy as np
 import matplotlib.pyplot as plt
 import wandb
 
@@ -56,9 +59,46 @@ def run_bayesopt_experiment(config):
             objective_X = posterior_X.mean.detach()
             return objective_X/scaled_constant
         
-        global_optimum_value = 2.5591700836662685
+        global_optimum_value = 25.591700836662685
 
         num_iterations = 80
+
+    if problem == "NN":
+        dim = 5
+        maximize = True
+        scaled_constant = -1
+        global_optimum_value = 0.08956228956228955
+        num_iterations = 5
+
+        benchmark = TabularBenchmark('nn', 31)
+
+        def find_nearest_ordinal(value: float, hyperparameter_type: OrdinalHyperparameter):
+            # Convert the sequence to a PyTorch tensor
+            valid_values = torch.tensor(hyperparameter_type.sequence)
+            
+            # Calculate the nearest value using torch operations
+            nearest = torch.argmin((valid_values - value) ** 2).item()
+            order = hyperparameter_type.get_seq_order()
+
+            return hyperparameter_type.get_value(order[nearest])
+
+        def round_to_valid_config(values: Dict[str, float], space: ConfigurationSpace):
+            # Iterate over hyperparameters using a dictionary comprehension
+            return {hyperparameter.name: find_nearest_ordinal(values[hyperparameter.name], hyperparameter) for hyperparameter in space.get_hyperparameters()}
+
+        def objective_function(values: torch.Tensor):
+            # Apply the specified transformations to each value
+            config = {
+                "alpha": 10 ** ((values[:,0].detach().numpy() - 1) * 8),
+                "batch_size": 2 ** (values[:,1].detach().numpy() * 8),
+                "depth": 2 * values[:,2].detach().numpy() + 1,
+                "learning_rate_init": 10 ** ((values[:,3].detach().numpy() - 1) * 5),
+                "width": 2 ** (values[:,4].item() * 10)
+            }
+
+            result = benchmark.objective_function(round_to_valid_config(config, benchmark.configuration_space))
+            return torch.tensor([result['function_value']])/scaled_constant
+
 
     seed = config['seed']
     torch.manual_seed(seed)
@@ -151,7 +191,7 @@ def run_bayesopt_experiment(config):
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    regret_history = Optimizer.get_regret_history(global_optimum_value)
+    regret_history = Optimizer.get_regret_history(global_optimum_value/scaled_constant)
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
@@ -165,6 +205,6 @@ wandb.init()
 (scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": scaled_constant*regret, "log(regret)":np.log10(scaled_constant)+np.log10(regret)})
+    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": -scaled_constant*regret, "log(regret)":np.log10(-scaled_constant)+np.log10(regret)})
 
 wandb.finish()
