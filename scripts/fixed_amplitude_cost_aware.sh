@@ -13,7 +13,7 @@
 #SBATCH --ntasks-per-node=1                  # Number of tasks per node
 
 source /share/apps/anaconda3/2021.05/etc/profile.d/conda.sh
-conda activate pandorabayesopt_env
+conda activate myenv
 wandb login
-wandb agent 'ziv-scully-group/Gittins for Bayesian Optimization/9aejdgiw' --count 1
+wandb agent 'ziv-scully-group/Gittins for Bayesian Optimization/lr36qkea' --count 1
 conda deactivate

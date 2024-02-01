@@ -194,7 +194,7 @@ def run_bayesopt_experiment(config):
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    regret_history = Optimizer.get_regret_history(global_optimum_value)
+    regret_history = Optimizer.get_regret_history(global_optimum_value/scaled_constant)
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)

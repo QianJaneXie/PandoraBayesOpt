@@ -38,12 +38,13 @@ def run_bayesopt_experiment(config):
     outputscale = config['amplitude']
     num_rff_features = config['num_rff_features']
     problem = config['problem']
-    if problem == 'hard_for_eipc':
-        cost_function_epsilon = 0.1
-        cost_function_delta = 1.0
-        amplitude_function_width = 0.001
-        cost_function_width = 0.001
-        budget = 4.0
+    
+    cost_function_epsilon = 0.1
+    cost_function_delta = 1.0
+    amplitude_function_width = 0.001
+    cost_function_width = 0.001
+    budget = 4.0
+
     seed = config['seed']
     torch.manual_seed(seed)
     input_standardize = config['input_normalization']
@@ -51,23 +52,45 @@ def run_bayesopt_experiment(config):
     print("policy:", policy)
     maximize = True
 
-    def squared_euclidean_distance(x, center):
-        # Calculate the squared Euclidean distance
-        return torch.sum((x - center) ** 2, dim=-1)
+    if problem == 'hard_for_eipc':
 
-    def amplitude_function(x):
-        center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
-        dist_squared = squared_euclidean_distance(x, center)
-        amplitude = torch.exp(-dist_squared / (2 * amplitude_function_width**2)) * (1 - cost_function_epsilon**2) + cost_function_epsilon**2
-        return amplitude
+        def squared_euclidean_distance(x, center):
+            # Calculate the squared Euclidean distance
+            return torch.sum((x - center) ** 2, dim=-1)
 
-    def cost_function(x):
-        center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
-        width = cost_function_width
-        peak_height = 1 + cost_function_delta - cost_function_epsilon
-        dist_squared = squared_euclidean_distance(x, center)
-        cost = torch.exp(-dist_squared / (2 * width**2)) * peak_height + cost_function_epsilon
-        return cost
+        def amplitude_function(x):
+            center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
+            dist_squared = squared_euclidean_distance(x, center)
+            amplitude = torch.exp(-dist_squared / (2 * amplitude_function_width**2)) * (1 - cost_function_epsilon**2) + cost_function_epsilon**2
+            return amplitude
+
+        def cost_function(x):
+            center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
+            width = cost_function_width
+            peak_height = 1 + cost_function_delta - cost_function_epsilon
+            dist_squared = squared_euclidean_distance(x, center)
+            cost = torch.exp(-dist_squared / (2 * width**2)) * peak_height + cost_function_epsilon
+            return cost
+
+    if problem == 'hard_for_ei':
+
+        def squared_euclidean_distance(x, center):
+            # Calculate the squared Euclidean distance
+            return torch.sum((x - center) ** 2, dim=-1)
+
+        def amplitude_function(x):
+            center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
+            dist_squared = squared_euclidean_distance(x, center)
+            amplitude = torch.exp(-dist_squared / (2 * amplitude_function_width**2)) * (1 - (1-cost_function_epsilon)**2) + (1-cost_function_epsilon)**2
+            return amplitude
+
+        def cost_function(x):
+            center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
+            width = cost_function_width
+            peak_height = 1 + cost_function_delta - cost_function_epsilon
+            dist_squared = squared_euclidean_distance(x, center)
+            cost = torch.exp(-dist_squared / (2 * width**2)) * peak_height + cost_function_epsilon
+            return cost
     
     # Create the objective function
     matern_sample = create_objective_function(
@@ -146,6 +169,20 @@ def run_bayesopt_experiment(config):
             acquisition_function_class=GittinsIndex,
             step_divide = True,
             alpha = 2
+        )
+    elif policy == 'Gittins_Step_Divide5':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 5
+        )
+    elif policy == 'Gittins_Step_Divide10':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 10
         )
     elif policy == 'Gittins_Step_EIpu':
         Optimizer.run_until_budget(

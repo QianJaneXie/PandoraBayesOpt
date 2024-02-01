@@ -88,6 +88,16 @@ def run_bayesopt_experiment(config):
         def cost_function(x):
             return 0.1+x.sum(dim=-1)
 
+    if config["costs"] == "periodic":
+        a = torch.tensor([1.1969])
+        b = torch.tensor([1.4694])
+        c = torch.tensor([3.0965])
+        pi = 3.14
+        def cost_function(X):
+            ln_cost_X = a * torch.cos(b * (2 * pi) * (X + c)).mean(dim=-1)
+            cost_X = torch.exp(ln_cost_X)
+            return cost_X
+
     # Set up the kernel
     base_kernel = MaternKernel(nu=nu).double()
     base_kernel.lengthscale = lengthscale
@@ -188,6 +198,8 @@ def run_bayesopt_experiment(config):
 
 wandb.init()
 (budget, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+
+wandb.log({"global_optimum_value": global_optimum_value})
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
     wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log10(regret)})

@@ -3,7 +3,7 @@ program: scripts/fixed_amplitude_cost_aware.py
 method: grid
 parameters:
   kernel:
-    values: ["matern52"]
+    values: ["matern32", "matern52"]
   dim:
     values: [2,4,8]
   lengthscale:
@@ -13,7 +13,7 @@ parameters:
   seed:
     values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
   input_normalization:
-    value: false
+    value: False
   draw_initial_method:
     values: ['sobol']
   policy:
@@ -30,4 +30,4 @@ parameters:
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
   costs:
-    values: ['linear']
+    values: ['periodic']

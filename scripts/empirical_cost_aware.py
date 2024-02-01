@@ -65,7 +65,7 @@ def run_bayesopt_experiment(config):
         def cost_function(X):
             posterior_X = log_cost_model.posterior(X)
             cost_X = torch.exp(posterior_X.mean)
-            return cost_X
+            return cost_X.squeeze(-1)
 
         budget = 80
 
@@ -94,7 +94,7 @@ def run_bayesopt_experiment(config):
             budget=budget, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'BudgetedMultiStepLookaheadEI':
+    elif policy == 'BudgetedMultiStepExpectedImprovement':
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=BudgetedMultiStepLookaheadEI
