@@ -11,15 +11,16 @@ from botorch.utils.sampling import draw_sobol_samples
 from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement
+from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
-from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
 import numpy as np
 import matplotlib.pyplot as plt
 import wandb
+from scipy.interpolate import interp1d
+
 
 # use a GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,19 +39,19 @@ def run_bayesopt_experiment(config):
     if kernel == 'matern32':
         nu = 1.5
         if lengthscale == 1.0: 
-            num_iterations = 15*dim
+            budget = 10*dim
         elif lengthscale == 0.1:
-            num_iterations = 20*dim 
+            budget = 15*dim 
         elif lengthscale == 0.01:
-            num_iterations = 25*dim
+            budget = 20*dim
     elif kernel == 'matern52':
         nu = 2.5
         if lengthscale == 1.0: 
-            num_iterations = 10*dim
+            budget = 5*dim
         elif lengthscale == 0.1:
-            num_iterations = 15*dim 
+            budget = 10*dim 
         elif lengthscale == 0.01:
-            num_iterations = 20*dim 
+            budget = 15*dim 
     seed = config['seed']
     torch.manual_seed(seed)
     
@@ -82,6 +83,11 @@ def run_bayesopt_experiment(config):
     bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
     global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=matern_sample, bounds=bounds, maximize=maximize)
 
+    # Create the cost function
+    if config["costs"] == "linear":
+        def cost_function(x):
+            return 0.1+x.sum(dim=-1)
+
     # Set up the kernel
     base_kernel = MaternKernel(nu=nu).double()
     base_kernel.lengthscale = lengthscale
@@ -105,76 +111,67 @@ def run_bayesopt_experiment(config):
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x, 
-        kernel=scale_kernel,
+        cost=cost_function,
         input_standardize=input_standardize
     )
     if policy == 'ExpectedImprovement':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget=budget, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'ThompsonSampling':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class="ThompsonSampling"
+    elif policy == 'ExpectedImprovementWithCost_Uniform':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovementWithCost
         )
-    elif policy == 'PredictiveEntropySearch':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=qPredictiveEntropySearch
-        )
-    elif policy == 'KnowledgeGradient':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=qKnowledgeGradient
-        )
-    elif policy == 'MultiStepLookaheadEI':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=MultiStepLookaheadEI
+    elif policy == 'ExpectedImprovementWithCost_Cooling':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovementWithCost,
+            cost_cooling = True
         )
     elif policy == 'Gittins_Lambda_01':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget = budget, 
             acquisition_function_class = GittinsIndex,
             lmbda = 0.01
         )
     elif policy == 'Gittins_Lambda_001':
-        Optimizer.run(
-            num_iterations = num_iterations, 
+        Optimizer.run_until_budget(
+            budget = budget, 
             acquisition_function_class = GittinsIndex,
             lmbda = 0.001
         )
     elif policy == 'Gittins_Lambda_0001':
-        Optimizer.run(
-            num_iterations = num_iterations, 
+        Optimizer.run_until_budget(
+            budget = budget, 
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
     elif policy == 'Gittins_Step_Divide2':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget = budget, 
             acquisition_function_class=GittinsIndex,
             step_divide = True,
             alpha = 2
         )
     elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget = budget, 
             acquisition_function_class=GittinsIndex,
             step_divide = True,
             alpha = 5
         )
     elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget = budget, 
             acquisition_function_class=GittinsIndex,
             step_divide = True,
             alpha = 10
         )
     elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget=budget, 
             acquisition_function_class=GittinsIndex,
             step_EIpu = True
         )
@@ -187,14 +184,23 @@ def run_bayesopt_experiment(config):
     print("Regret history:", regret_history)
     print()
 
-    return (global_optimum_value.item(), cost_history, best_history, regret_history)
+    return (budget, global_optimum_value.item(), cost_history, best_history, regret_history)
 
 wandb.init()
-(global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
-
-wandb.log({"global optimum value": global_optimum_value})
+(budget, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "lg(regret)": np.log10(regret)})
+    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log10(regret)})
+
+interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
+interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_best = interp_func_best(interp_cost)
+interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_regret = interp_func_regret(interp_cost)
+interp_func_log_regret = interp1d(cost_history, list(np.log10(regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
+interp_log_regret = interp_func_log_regret(interp_cost)
+
+for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
+    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "lg(regret)": log_regret})
 
 wandb.finish()

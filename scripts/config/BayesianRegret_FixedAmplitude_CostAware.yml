@@ -3,33 +3,31 @@ program: scripts/fixed_amplitude_cost_aware.py
 method: grid
 parameters:
   kernel:
-    values: ["matern32", "matern52"]
+    values: ["matern52"]
   dim:
-    values: [1,2,4,8,16]
+    values: [2,4,8]
   lengthscale:
-    values: [0.01,0.1,1.0]
+    values: [0.1,1.0]
   amplitude:
-    values: [0.1,1.0,10.0]
-  num_rff_features:
-    value: 1280
+    values: [1.0]
   seed:
-    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-  input_ormalization:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+  input_normalization:
     value: false
-  max_num_iterations:
-    value: 100
-  total_cost_budget:
-    value: 10.0
+  draw_initial_method:
+    values: ['sobol']
   policy:
     values:
-      - ExpectedImprovementPerCost
-      - ExpectedImprovement_UniformCost
-      - ExpectedImprovementPerCost_WithCooling
-      - BudgetedMultiStepExpectedImprovement
-      - Gittins_Lambda_10
+      - ExpectedImprovement
+      - ExpectedImprovementWithCost_Uniform
+      - ExpectedImprovementWithCost_Cooling
+      # - BudgetedMultiStepExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
-      - Gittins_Step
+      - Gittins_Lambda_0001
+      - Gittins_Step_Divide2
+      - Gittins_Step_Divide5
+      - Gittins_Step_Divide10
       - Gittins_Step_EIpu
   costs:
-    values: ['periodic','linear','bump']
+    values: ['linear']
