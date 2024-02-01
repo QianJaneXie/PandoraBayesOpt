@@ -10,6 +10,7 @@ from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
+from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
 import matplotlib.pyplot as plt
@@ -92,6 +93,11 @@ def run_bayesopt_experiment(config):
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=ExpectedImprovement
+        )
+    elif policy == 'BudgetedMultiStepLookaheadEI':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=BudgetedMultiStepLookaheadEI
         )
     elif policy == 'ExpectedImprovementWithCost_Uniform':
         Optimizer.run_until_budget(

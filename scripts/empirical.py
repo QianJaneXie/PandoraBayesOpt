@@ -68,7 +68,7 @@ def run_bayesopt_experiment(config):
         maximize = True
         scaled_constant = -1
         global_optimum_value = 0.08956228956228955
-        num_iterations = 5
+        num_iterations = 50
 
         benchmark = TabularBenchmark('nn', 31)
 
@@ -87,17 +87,20 @@ def run_bayesopt_experiment(config):
             return {hyperparameter.name: find_nearest_ordinal(values[hyperparameter.name], hyperparameter) for hyperparameter in space.get_hyperparameters()}
 
         def objective_function(values: torch.Tensor):
-            # Apply the specified transformations to each value
-            config = {
-                "alpha": 10 ** ((values[:,0].detach().numpy() - 1) * 8),
-                "batch_size": 2 ** (values[:,1].detach().numpy() * 8),
-                "depth": 2 * values[:,2].detach().numpy() + 1,
-                "learning_rate_init": 10 ** ((values[:,3].detach().numpy() - 1) * 5),
-                "width": 2 ** (values[:,4].item() * 10)
-            }
+            results = []
+            for i in range(values.size(0)):  # Looping over each point
+                config = {
+                    "alpha": 10 ** ((values[i, 0].detach().item() - 1) * 8),
+                    "batch_size": 2 ** (values[i, 1].detach().item() * 8),
+                    "depth": int(2 * values[i, 2].detach().item() + 1),  # Ensuring depth is an integer
+                    "learning_rate_init": 10 ** ((values[i, 3].detach().item() - 1) * 5),
+                    "width": 2 ** (values[i, 4].detach().item() * 10)
+                }
 
-            result = benchmark.objective_function(round_to_valid_config(config, benchmark.configuration_space))
-            return torch.tensor([result['function_value']])/scaled_constant
+                result = benchmark.objective_function(round_to_valid_config(config, benchmark.configuration_space))
+                results.append(result['function_value'])
+
+            return torch.tensor(results)/scaled_constant  # Convert the list of results to an N*1 tensor
 
 
     seed = config['seed']
