@@ -68,7 +68,7 @@ def run_bayesopt_experiment(config):
         maximize = True
         scaled_constant = -1
         global_optimum_value = 0.08956228956228955
-        num_iterations = 50
+        num_iterations = 60
 
         benchmark = TabularBenchmark('nn', 31)
 
