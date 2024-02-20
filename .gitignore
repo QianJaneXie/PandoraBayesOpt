@@ -167,4 +167,4 @@ cython_debug/
 wandb/
 
 # Data for plotting
-.csv
+notebooks/plot/results/
