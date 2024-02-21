@@ -6,7 +6,7 @@ from pandora_bayesopt.utils import fit_gp_model
 from botorch.models import SingleTaskGP
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
 from gpytorch.means import ConstantMean
-from gpytorch.kernels import MaternKernel, ScaleKernel
+from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
 from botorch.utils.sampling import optimize_posterior_samples
@@ -36,22 +36,29 @@ def run_bayesopt_experiment(config):
     outputscale = config['amplitude']
     maximize = True
     kernel = config['kernel']
-    if kernel == 'matern32':
+    if kernel == 'Matern32':
         nu = 1.5
         if lengthscale == 1.0: 
-            budget = 10*dim
-        elif lengthscale == 0.1:
-            budget = 15*dim 
-        elif lengthscale == 0.01:
             budget = 20*dim
-    elif kernel == 'matern52':
+        elif lengthscale == 0.1:
+            budget = 25*dim 
+        elif lengthscale == 0.01:
+            budget = 30*dim
+    elif kernel == 'Matern52':
         nu = 2.5
         if lengthscale == 1.0: 
-            budget = 5*dim
+            budget = 15*dim
         elif lengthscale == 0.1:
-            budget = 10*dim 
+            budget = 20*dim 
         elif lengthscale == 0.01:
-            budget = 15*dim 
+            budget = 25*dim 
+    elif kernel == 'RBF':
+        if lengthscale == 1.0: 
+            num_iterations = 10*dim
+        elif lengthscale == 0.1:
+            num_iterations = 15*dim 
+        elif lengthscale == 0.01:
+            num_iterations = 20*dim
     seed = config['seed']
     torch.manual_seed(seed)
     
@@ -75,13 +82,13 @@ def run_bayesopt_experiment(config):
     model = SingleTaskGP(train_X, train_Y, covar_module=scale_kernel)
 
     # Draw a sample path
-    matern_sample = draw_kernel_feature_paths(model, sample_shape=torch.Size([1]))
+    sample_path = draw_kernel_feature_paths(model, sample_shape=torch.Size([1]))
     def objective_function(x):
-        return matern_sample(x).squeeze(0).detach()
+        return sample_path(x).squeeze(0).detach()
 
     # Find the global optimum
     bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
-    global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=matern_sample, bounds=bounds, maximize=maximize)
+    global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=sample_path, bounds=bounds, maximize=maximize)
 
     # Create the cost function
     if config["costs"] == "linear":
@@ -99,7 +106,10 @@ def run_bayesopt_experiment(config):
             return cost_X
 
     # Set up the kernel
-    base_kernel = MaternKernel(nu=nu).double()
+    if kernel == 'RBF':
+        base_kernel = RBFKernel().double()
+    else:
+        base_kernel = MaternKernel(nu=nu).double()
     base_kernel.lengthscale = lengthscale
     base_kernel.raw_lengthscale.requires_grad = False
     scale_kernel = ScaleKernel(base_kernel).double()
@@ -199,7 +209,7 @@ def run_bayesopt_experiment(config):
 wandb.init()
 (budget, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
-wandb.log({"global_optimum_value": global_optimum_value})
+wandb.log({"global optimum value": global_optimum_value})
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
     wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log10(regret)})
