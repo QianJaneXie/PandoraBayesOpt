@@ -40,24 +40,24 @@ def run_bayesopt_experiment(config):
         if lengthscale == 1.0: 
             num_iterations = 15*dim
         elif lengthscale == 0.1:
-            num_iterations = 20*dim 
+            num_iterations = 30*dim
         elif lengthscale == 0.01:
-            num_iterations = 25*dim
+            num_iterations = 15*dim
     elif kernel == 'Matern52':
         nu = 2.5
         if lengthscale == 1.0: 
             num_iterations = 10*dim
         elif lengthscale == 0.1:
-            num_iterations = 15*dim 
+            num_iterations = 25*dim
         elif lengthscale == 0.01:
-            num_iterations = 20*dim
+            num_iterations = 10*dim
     elif kernel == 'RBF':
         if lengthscale == 1.0: 
             num_iterations = 5*dim
         elif lengthscale == 0.1:
-            num_iterations = 10*dim 
+            num_iterations = 20*dim
         elif lengthscale == 0.01:
-            num_iterations = 15*dim 
+            num_iterations = 5*dim 
     seed = config['seed']
     torch.manual_seed(seed)
     

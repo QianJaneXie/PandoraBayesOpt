@@ -39,31 +39,34 @@ def run_bayesopt_experiment(config):
     if kernel == 'Matern32':
         nu = 1.5
         if lengthscale == 1.0: 
-            budget = 20*dim
+            budget = 15*dim
         elif lengthscale == 0.1:
-            budget = 25*dim 
+            budget = 30*dim 
         elif lengthscale == 0.01:
-            budget = 30*dim
+            budget = 15*dim
     elif kernel == 'Matern52':
         nu = 2.5
         if lengthscale == 1.0: 
-            budget = 15*dim
+            budget = 10*dim
         elif lengthscale == 0.1:
-            budget = 20*dim 
-        elif lengthscale == 0.01:
             budget = 25*dim 
+        elif lengthscale == 0.01:
+            budget = 10*dim 
     elif kernel == 'RBF':
         if lengthscale == 1.0: 
-            num_iterations = 10*dim
+            num_iterations = 5*dim
         elif lengthscale == 0.1:
-            num_iterations = 15*dim 
+            num_iterations = 20*dim 
         elif lengthscale == 0.01:
-            num_iterations = 20*dim
+            num_iterations = 5*dim
     seed = config['seed']
     torch.manual_seed(seed)
     
     # Create the objective function
-    base_kernel = MaternKernel(nu=nu).double()
+    if kernel == 'RBF':
+        base_kernel = RBFKernel().double()
+    else:
+        base_kernel = MaternKernel(nu=nu).double()
     base_kernel.lengthscale = torch.tensor([[lengthscale]])
     scale_kernel = ScaleKernel(base_kernel).double()
     scale_kernel.outputscale = torch.tensor([[outputscale]])
@@ -101,7 +104,7 @@ def run_bayesopt_experiment(config):
         c = torch.tensor([3.0965])
         pi = 3.14
         def cost_function(X):
-            ln_cost_X = a * torch.cos(b * (2 * pi) * (X + c)).mean(dim=-1)
+            ln_cost_X = a * torch.cos(b * (4 * pi) * (X/lengthscale + c)).mean(dim=-1)
             cost_X = torch.exp(ln_cost_X)
             return cost_X
 
