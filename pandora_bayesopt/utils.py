@@ -89,23 +89,3 @@ def find_global_optimum(objective, dim, maximize, raw_samples=None, method='L-BF
     global_optimum_value = objective(global_optimum_point).item()
 
     return global_optimum_point.squeeze(-1).squeeze(-1), global_optimum_value
-
-def find_global_optimum_scipy(objective, dim, maximize):
-    """
-    Find the global optimum using differential evolution.
-    Parameters:
-    - objective (function): The objective function to optimize.
-    - dim (int): The number of dimensions.
-    - maximize (bool): If True, maximizes the objective; otherwise, minimizes.
-    Returns:
-    - float: The global optimum found.
-    """
-    def scipy_objective(x):
-        x_tensor = torch.tensor(x, dtype=torch.float64)
-        return -objective(x_tensor) if maximize else objective(x_tensor)
-    scipy_bounds = list(zip(np.zeros(dim), np.ones(dim)))
-    # Run differential evolution
-    result = differential_evolution(scipy_objective, scipy_bounds)
-    global_optimum_point = result.x
-    global_optimum_value = scipy_objective(result.x).item()
-    return global_optimum_point, -global_optimum_value if maximize else global_optimum_value
