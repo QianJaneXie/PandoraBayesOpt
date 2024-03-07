@@ -38,11 +38,11 @@ def run_bayesopt_experiment(config):
     if kernel == 'Matern32':
         nu = 1.5
         if lengthscale == 1.0: 
-            num_iterations = 15*dim
+            num_iterations = 10*dim
         elif lengthscale == 0.1:
-            num_iterations = 30*dim
+            num_iterations = 25*dim
         elif lengthscale == 0.01:
-            num_iterations = 15*dim
+            num_iterations = 25*dim
     elif kernel == 'Matern52':
         nu = 2.5
         if lengthscale == 1.0: 
@@ -50,14 +50,14 @@ def run_bayesopt_experiment(config):
         elif lengthscale == 0.1:
             num_iterations = 25*dim
         elif lengthscale == 0.01:
-            num_iterations = 10*dim
+            num_iterations = 25*dim
     elif kernel == 'RBF':
         if lengthscale == 1.0: 
             num_iterations = 5*dim
         elif lengthscale == 0.1:
             num_iterations = 20*dim
         elif lengthscale == 0.01:
-            num_iterations = 5*dim 
+            num_iterations = 20*dim 
     seed = config['seed']
     torch.manual_seed(seed)
     
@@ -76,12 +76,12 @@ def run_bayesopt_experiment(config):
     # Initialize Placeholder Data with Correct Dimensions
     num_samples = 1  # Replace with actual number of samples
     num_features = dim  # Replace with actual number of features
-    train_X = torch.empty(num_samples, num_features)  # Placeholder data
-    train_Y = torch.empty(num_samples, 1)             # Placeholder data
+    train_X = torch.zeros(num_samples, num_features)  # Placeholder data
+    train_Y = torch.zeros(num_samples, 1)             # Placeholder data
     Yvar = torch.ones(num_samples) * noise_level
 
     # Initialize Model
-    model = SingleTaskGP(train_X, train_Y, covar_module=scale_kernel)
+    model = SingleTaskGP(train_X, train_Y, likelihood = FixedNoiseGaussianLikelihood(noise=Yvar), covar_module=scale_kernel)
 
     # Draw a sample path
     sample_path = draw_kernel_feature_paths(model, sample_shape=torch.Size([1]))
@@ -90,7 +90,9 @@ def run_bayesopt_experiment(config):
 
     # Find the global optimum
     bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
-    global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=sample_path, bounds=bounds, maximize=maximize)
+    global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=sample_path, bounds=bounds, raw_samples=1024*dim, num_restarts=20*dim, maximize=maximize)
+    print("global optimum point:", global_optimum_point.detach().numpy())
+    print("global optimum value:", global_optimum_value.item())
 
     # Set up the kernel
     if kernel == 'RBF':
@@ -121,7 +123,12 @@ def run_bayesopt_experiment(config):
         kernel=scale_kernel,
         input_standardize=input_standardize
     )
-    if policy == 'ExpectedImprovement':
+    if policy == 'RandomSearch':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class="RandomSearch"
+        )
+    elif policy == 'ExpectedImprovement':
         Optimizer.run(
             num_iterations=num_iterations, 
             acquisition_function_class=ExpectedImprovement

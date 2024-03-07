@@ -18,6 +18,7 @@ parameters:
     values: ['sobol']
   policy:
     values:
+      - RandomSearch
       - ExpectedImprovement
       - ExpectedImprovementWithCost_Uniform
       - ExpectedImprovementWithCost_Cooling
@@ -30,4 +31,4 @@ parameters:
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
   costs:
-    values: ['periodic','linear']
+    values: ['linear']

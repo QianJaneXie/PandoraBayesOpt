@@ -18,6 +18,7 @@ parameters:
     values: ['sobol']
   policy:
     values:
+      - RandomSearch
       - ExpectedImprovement
       - ThompsonSampling
       - KnowledgeGradient

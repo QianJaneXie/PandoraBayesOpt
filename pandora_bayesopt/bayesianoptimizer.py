@@ -1,5 +1,5 @@
 import torch
-from botorch.acquisition import ExpectedImprovement
+from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
 from botorch.acquisition.multi_step_lookahead import warmstart_multistep
 from .acquisition.gittins import GittinsIndex
 from .acquisition.ei_puc import ExpectedImprovementWithCost
@@ -12,30 +12,6 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.optim import optimize_acqf
 from copy import copy
 from .utils import fit_gp_model
-
-def plot_posterior(ax,objective_function,model,test_x,train_x,train_y):
-    
-    with torch.no_grad():
-        
-        # Plot the objective function at the test points
-        ax.plot(test_x.cpu().numpy(), objective_function(test_x.view(-1,1)).numpy(), 'tab:grey', alpha=0.6)
-    
-        # Calculate the posterior at the test points
-        posterior = model.posterior(test_x.unsqueeze(1).unsqueeze(1))
-
-        # Get upper and lower confidence bounds (2 standard deviations from the mean)
-        lower, upper = posterior.mvn.confidence_region()
-        lower = lower.squeeze(-1).squeeze(-1)
-        upper = upper.squeeze(-1).squeeze(-1)
-        # Plot training points as black stars
-        ax.plot(train_x.cpu().numpy(), train_y.cpu().numpy(), 'k*', alpha=0.8)
-        # Plot posterior means as blue line
-        ax.plot(test_x.cpu().numpy(), posterior.mean.squeeze(-1).squeeze(-1).cpu().numpy(), alpha=0.8)
-        # Shade between the lower and upper confidence bounds
-        ax.fill_between(test_x.cpu().numpy(), lower.cpu().numpy(), upper.cpu().numpy(), alpha=0.2)
-        
-    
-    ax.legend(['Objective Function', 'Observed Data', 'Mean', 'Confidence'])
 
 class BayesianOptimizer:
     def __init__(self, objective, dim, maximize, initial_points, input_standardize = False, kernel=None, cost=None):
@@ -71,7 +47,13 @@ class BayesianOptimizer:
         model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
         is_ms = False
 
-        if acquisition_function_class == "ThompsonSampling":
+        if acquisition_function_class == "RandomSearch":
+
+            new_point = torch.rand(1, self.dim)
+
+            self.current_acq = self.objective(new_point)
+        
+        elif acquisition_function_class == "ThompsonSampling":
             
             # Draw sample path(s)
             paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
@@ -94,6 +76,10 @@ class BayesianOptimizer:
                 new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
                 acqf_args['optimal_inputs'] = new_point
+                acqf_args['maximize'] = self.maximize
+
+            elif acquisition_function_class == UpperConfidenceBound:
+                acqf_args['beta'] = acqf_kwargs['beta']
                 acqf_args['maximize'] = self.maximize
             
             elif acquisition_function_class == ExpectedImprovement:

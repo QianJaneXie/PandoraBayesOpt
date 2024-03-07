@@ -39,11 +39,11 @@ def run_bayesopt_experiment(config):
     if kernel == 'Matern32':
         nu = 1.5
         if lengthscale == 1.0: 
-            budget = 15*dim
+            budget = 10*dim
         elif lengthscale == 0.1:
-            budget = 30*dim 
+            budget = 25*dim 
         elif lengthscale == 0.01:
-            budget = 15*dim
+            budget = 25*dim
     elif kernel == 'Matern52':
         nu = 2.5
         if lengthscale == 1.0: 
@@ -51,14 +51,14 @@ def run_bayesopt_experiment(config):
         elif lengthscale == 0.1:
             budget = 25*dim 
         elif lengthscale == 0.01:
-            budget = 10*dim 
+            budget = 25*dim 
     elif kernel == 'RBF':
         if lengthscale == 1.0: 
-            num_iterations = 5*dim
+            budget = 5*dim
         elif lengthscale == 0.1:
-            num_iterations = 20*dim 
+            budget = 20*dim 
         elif lengthscale == 0.01:
-            num_iterations = 5*dim
+            budget = 20*dim
     seed = config['seed']
     torch.manual_seed(seed)
     
@@ -137,7 +137,12 @@ def run_bayesopt_experiment(config):
         cost=cost_function,
         input_standardize=input_standardize
     )
-    if policy == 'ExpectedImprovement':
+    if policy == 'RandomSearch':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class="RandomSearch"
+        )
+    elif policy == 'ExpectedImprovement':
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=ExpectedImprovement

@@ -41,7 +41,7 @@ class GittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
-#         while torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) >= eps:
+        # while torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) >= eps:
         for _ in range(100):
             sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
             if maximize:
