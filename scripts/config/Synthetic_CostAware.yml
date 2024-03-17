@@ -3,21 +3,21 @@ program: scripts/synthetic_cost_aware.py
 method: grid
 parameters:
   problem:
-    values: ["Ackley_5D", "DropWave_2D", "Shekel5_4D", "Levy_5D", "Rosenbrock_5D"]
+    values: ["Ackley", "Levy", "Rosenbrock"]
+  dim:
+    values: [4, 8, 16]
   seed:
     values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
   input_normalization:
     values: [True]
-  total_cost_budget:
-    value: 60
   draw_initial_method:
     values: ['sobol']
   policy:
     values:
-      - ExpectedImprovement
-      - ExpectedImprovementWithCost_Uniform
-      - ExpectedImprovementWithCost_Cooling
-      - BudgetedMultiStepLookaheadEI
+      - RandomSearch
+      - ExpectedImprovementWithoutCost
+      - ExpectedImprovementPerUnitCost
+      - ExpectedImprovementWithCostCooling
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
@@ -25,4 +25,15 @@ parameters:
       - Gittins_Step_Divide5
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
+      - BudgetedMultiStepLookaheadEI
+  cost_function_type:
+    values: ['mean']
+  budget_to_dimension_ratio:
+    value: 25
+  cost_min:
+    value: 0.05
+  cost_function_scale_factor:
+    value: 20
+  max_to_min_ratio:
+    value: 21
 

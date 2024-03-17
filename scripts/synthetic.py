@@ -25,45 +25,43 @@ def run_bayesopt_experiment(config):
     print(config)
 
     problem = config['problem']
+    dim = config['dim']
+    num_iterations = 10*dim
     seed = config['seed']
     torch.manual_seed(seed)
     input_standardize = config['input_normalization']
     draw_initial_method = config['draw_initial_method']
     policy = config['policy']
     print("policy:", policy)
-    num_iterations = config['num_iterations']
     maximize = True
 
-    if problem == 'Ackley_5D':
-        dim = 5
+    if problem == 'Ackley':
         ackley_function = Ackley(dim=dim)
         scaled_constant = -1
         def objective_function(X):
             return ackley_function(2*X-1)/scaled_constant
         global_optimum_value = 0
-    if problem == 'DropWave_2D':
-        dim = 2
-        dropwave_function = DropWave()
-        scaled_constant = -1
-        def objective_function(X):
-            return dropwave_function(10.24*X-5.12)/scaled_constant
-        global_optimum_value = -1.0
-    if problem == 'Shekel5_4D':
-        dim = 4
-        shekel_function = Shekel(m=5)
-        scaled_constant = -2
-        def objective_function(X):
-            return shekel_function(10*X)/scaled_constant
-        global_optimum_value = -10.1532
-    if problem == 'Rosenbrock_5D':
-        dim = 5
+    # if problem == 'DropWave_2D':
+    #     dim = 2
+    #     dropwave_function = DropWave()
+    #     scaled_constant = -1
+    #     def objective_function(X):
+    #         return dropwave_function(10.24*X-5.12)/scaled_constant
+    #     global_optimum_value = -1.0
+    # if problem == 'Shekel5_4D':
+    #     dim = 4
+    #     shekel_function = Shekel(m=5)
+    #     scaled_constant = -2
+    #     def objective_function(X):
+    #         return shekel_function(10*X)/scaled_constant
+    #     global_optimum_value = -10.1532
+    if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
         scaled_constant = -1000
         def objective_function(X):
             return rosenbrock_function(15*X-5)/scaled_constant
         global_optimum_value = 0
-    if problem == 'Levy_5D':
-        dim = 5
+    if problem == 'Levy':
         levy_function = Levy(dim=dim)
         scaled_constant = -100
         def objective_function(X):
@@ -73,7 +71,7 @@ def run_bayesopt_experiment(config):
     # Test performance of different policies
     if draw_initial_method == 'sobol':
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
-        init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*dim+1).squeeze(0)
+        init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
 
     Optimizer = BayesianOptimizer(
         objective=objective_function, 
@@ -82,15 +80,20 @@ def run_bayesopt_experiment(config):
         initial_points=init_x,
         input_standardize=input_standardize
     )
-    if policy == 'ExpectedImprovement':
+    if policy == 'RandomSearch':
         Optimizer.run(
             num_iterations=num_iterations, 
-            acquisition_function_class=ExpectedImprovement
+            acquisition_function_class="RandomSearch"
         )
     elif policy == 'ThompsonSampling':
         Optimizer.run(
             num_iterations=num_iterations, 
             acquisition_function_class="ThompsonSampling"
+        )
+    elif policy == 'ExpectedImprovement':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=ExpectedImprovement
         )
     elif policy == 'PredictiveEntropySearch':
         Optimizer.run(

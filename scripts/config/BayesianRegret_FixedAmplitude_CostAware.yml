@@ -7,7 +7,7 @@ parameters:
   kernel:
     values: ["Matern32", "Matern52", "RBF"]
   lengthscale:
-    values: [1.0,0.1,0.01]
+    values: [1.0,0.1]
   amplitude:
     values: [1.0]
   seed:
@@ -19,9 +19,9 @@ parameters:
   policy:
     values:
       - RandomSearch
-      - ExpectedImprovement
-      - ExpectedImprovementWithCost_Uniform
-      - ExpectedImprovementWithCost_Cooling
+      - ExpectedImprovementWithoutCost
+      - ExpectedImprovementPerUnitCost
+      - ExpectedImprovementWithCostCooling
       # - BudgetedMultiStepExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
@@ -30,5 +30,13 @@ parameters:
       - Gittins_Step_Divide5
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
-  costs:
-    values: ['linear']
+  cost_function_type:
+    values: ['mean']
+  budget_to_dimension_ratio:
+    value: 50
+  cost_min:
+    value: 0.05
+  cost_function_scale_factor:
+    value: 20
+  max_to_min_ratio:
+    value: 21

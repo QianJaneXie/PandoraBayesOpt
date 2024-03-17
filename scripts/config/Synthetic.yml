@@ -3,22 +3,20 @@ program: scripts/synthetic.py
 method: grid
 parameters:
   problem:
-    values: ['Ackley_5D', "DropWave_2D", 'Shekel5_4D', 'Rosenbrock_5D', 'Levy_5D']
+    values: ["Ackley", "Rosenbrock", "Levy"]
+  dim:
+    values: [4, 8, 16]
   seed:
     values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
   input_normalization:
     values: [True]
-  num_iterations:
-    value: 60
   draw_initial_method:
     values: ['sobol']
   policy:
     values:
-      - ExpectedImprovement
+      - RandomSearch
       - ThompsonSampling
-      - KnowledgeGradient
-      # - PredictiveEntropySearch
-      - MultiStepLookaheadEI
+      - ExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
@@ -26,4 +24,7 @@ parameters:
       - Gittins_Step_Divide5
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
+      - KnowledgeGradient
+      # - PredictiveEntropySearch
+      - MultiStepLookaheadEI
 

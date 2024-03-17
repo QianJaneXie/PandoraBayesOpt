@@ -32,35 +32,24 @@ def run_bayesopt_experiment(config):
     print(config)
 
     dim = config['dim']
+    kernel = config['kernel']
+    if kernel == 'Matern32':
+        nu = 1.5 
+    elif kernel == 'Matern52':
+        nu = 2.5
     lengthscale = config['lengthscale']
     outputscale = config['amplitude']
     maximize = True
-    kernel = config['kernel']
-    if kernel == 'Matern32':
-        nu = 1.5
-        if lengthscale == 1.0: 
-            budget = 10*dim
-        elif lengthscale == 0.1:
-            budget = 25*dim 
-        elif lengthscale == 0.01:
-            budget = 25*dim
-    elif kernel == 'Matern52':
-        nu = 2.5
-        if lengthscale == 1.0: 
-            budget = 10*dim
-        elif lengthscale == 0.1:
-            budget = 25*dim 
-        elif lengthscale == 0.01:
-            budget = 25*dim 
-    elif kernel == 'RBF':
-        if lengthscale == 1.0: 
-            budget = 5*dim
-        elif lengthscale == 0.1:
-            budget = 20*dim 
-        elif lengthscale == 0.01:
-            budget = 20*dim
     seed = config['seed']
     torch.manual_seed(seed)
+    c_min = config['cost_min']
+    scale_factor = config['cost_function_scale_factor']
+
+    # Set the budget
+    if lengthscale == 1.0 or dim == 32: 
+        budget = 25*dim
+    else:
+        budget = 50*dim
     
     # Create the objective function
     if kernel == 'RBF':
@@ -77,12 +66,12 @@ def run_bayesopt_experiment(config):
     # Initialize Placeholder Data with Correct Dimensions
     num_samples = 1  # Replace with actual number of samples
     num_features = dim  # Replace with actual number of features
-    train_X = torch.empty(num_samples, num_features)  # Placeholder data
-    train_Y = torch.empty(num_samples, 1)             # Placeholder data
+    train_X = torch.zeros(num_samples, num_features)  # Placeholder data
+    train_Y = torch.zeros(num_samples, 1)             # Placeholder data
     Yvar = torch.ones(num_samples) * noise_level
 
     # Initialize Model
-    model = SingleTaskGP(train_X, train_Y, covar_module=scale_kernel)
+    model = SingleTaskGP(train_X, train_Y, likelihood = FixedNoiseGaussianLikelihood(noise=Yvar), covar_module=scale_kernel)
 
     # Draw a sample path
     sample_path = draw_kernel_feature_paths(model, sample_shape=torch.Size([1]))
@@ -91,22 +80,14 @@ def run_bayesopt_experiment(config):
 
     # Find the global optimum
     bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
-    global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=sample_path, bounds=bounds, maximize=maximize)
+    global_optimum_point, global_optimum_value = optimize_posterior_samples(paths=sample_path, bounds=bounds, raw_samples=1024*dim, num_restarts=20*dim, maximize=maximize)
+    print("global optimum point:", global_optimum_point.detach().numpy())
+    print("global optimum value:", global_optimum_value.item())
 
     # Create the cost function
-    if config["costs"] == "linear":
+    if config["cost_function_type"] == "mean":
         def cost_function(x):
-            return 0.1+x.sum(dim=-1)
-
-    if config["costs"] == "periodic":
-        a = torch.tensor([1.1969])
-        b = torch.tensor([1.4694])
-        c = torch.tensor([3.0965])
-        pi = 3.14
-        def cost_function(X):
-            ln_cost_X = a * torch.cos(b * (4 * pi) * (X/lengthscale + c)).mean(dim=-1)
-            cost_X = torch.exp(ln_cost_X)
-            return cost_X
+            return scale_factor*(c_min+x.mean(dim=-1))
 
     # Set up the kernel
     if kernel == 'RBF':
@@ -138,21 +119,21 @@ def run_bayesopt_experiment(config):
         input_standardize=input_standardize
     )
     if policy == 'RandomSearch':
-        Optimizer.run(
-            num_iterations=num_iterations, 
+        Optimizer.run_until_budget(
+            budget=budget, 
             acquisition_function_class="RandomSearch"
         )
-    elif policy == 'ExpectedImprovement':
+    elif policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'ExpectedImprovementWithCost_Uniform':
+    elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost
         )
-    elif policy == 'ExpectedImprovementWithCost_Cooling':
+    elif policy == 'ExpectedImprovementWithCostCooling':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost,
@@ -222,7 +203,7 @@ wandb.log({"global optimum value": global_optimum_value})
 for cost, best, regret in zip(cost_history, best_history, regret_history):
     wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log10(regret)})
 
-interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
+interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_best = interp_func_best(interp_cost)
 interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
