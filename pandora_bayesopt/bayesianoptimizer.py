@@ -203,8 +203,8 @@ class BayesianOptimizer:
             self.current_acq = candidates_acq_vals[best_idx]
         
         
-        new_value = self.objective(new_point)
-        self.x = torch.cat((self.x, new_point))
+        new_value = self.objective(new_point.detach())
+        self.x = torch.cat((self.x, new_point.detach()))
         self.y = torch.cat((self.y, new_value))
         self.update_best()
         self.update_cost(new_point)
