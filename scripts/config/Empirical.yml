@@ -3,7 +3,7 @@ program: scripts/empirical.py
 method: grid
 parameters:
   problem:
-    values: ['NN', 'FreeSolv']
+    values: ["LunarLander", "PestControl"]
   seed:
     values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
   input_normalization:
@@ -12,11 +12,10 @@ parameters:
     values: ['sobol']
   policy:
     values:
+      - RandomSearch
       - ExpectedImprovement
       - ThompsonSampling
       # - PredictiveEntropySearch
-      - KnowledgeGradient
-      - MultiStepLookaheadEI
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
@@ -24,4 +23,6 @@ parameters:
       - Gittins_Step_Divide5
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
+      - KnowledgeGradient
+      - MultiStepLookaheadEI
 
