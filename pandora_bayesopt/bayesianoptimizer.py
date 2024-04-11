@@ -12,6 +12,7 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.optim import optimize_acqf
 from copy import copy
 from .utils import fit_gp_model
+import time
 
 class BayesianOptimizer:
     def __init__(self, objective, dim, maximize, initial_points, input_standardize = False, kernel=None, cost=None):
@@ -24,6 +25,7 @@ class BayesianOptimizer:
         self.cost = cost if cost is not None else 1.0
         self.cumulative_cost = 0.0
         self.cost_history = [0.0]
+        self.runtime_history = []
         self.initialize_points(initial_points)
         self.suggested_x_full_tree = None
         
@@ -44,9 +46,6 @@ class BayesianOptimizer:
 
     def iterate(self, acquisition_function_class, **acqf_kwargs):
         
-        model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
-        is_ms = False
-
         if acquisition_function_class == "RandomSearch":
 
             new_point = torch.rand(1, self.dim)
@@ -62,8 +61,11 @@ class BayesianOptimizer:
             new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
             self.current_acq = new_point_TS
-
+            
         else:
+            
+            model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
+            is_ms = False
 
             acqf_args = {'model': model}
 
@@ -234,6 +236,7 @@ class BayesianOptimizer:
         print("Cumulative cost:", self.cumulative_cost)
         if hasattr(self, 'need_lmbda_update'):
             print("Gittins lmbda:", self.lmbda_history[-1])
+        print("Running time:", self.runtime)
         print()
 
     def run(self, num_iterations, acquisition_function_class, **acqf_kwargs):
@@ -249,7 +252,12 @@ class BayesianOptimizer:
                 self.lmbda_history = []                
 
         for i in range(num_iterations):
+            start = time.process_time()
             self.iterate(acquisition_function_class, **acqf_kwargs)
+            end = time.process_time()
+            runtime = end - start
+            self.runtime = runtime
+            self.runtime_history.append(runtime)
             self.print_iteration_info(i)
 
     def run_until_budget(self, budget, acquisition_function_class, **acqf_kwargs):
@@ -266,7 +274,12 @@ class BayesianOptimizer:
 
         i = 0
         while self.cumulative_cost < self.budget:
+            start = time.process_time()
             self.iterate(acquisition_function_class, **acqf_kwargs)
+            end = time.process_time()
+            runtime = end - start
+            self.runtime = runtime
+            self.runtime_history.append(runtime)
             self.print_iteration_info(i)
             i += 1
 
@@ -296,3 +309,6 @@ class BayesianOptimizer:
 
     def get_lmbda_history(self):
         return self.lmbda_history
+    
+    def get_runtime_history(self):
+        return self.runtime_history
