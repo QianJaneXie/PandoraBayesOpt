@@ -1,0 +1,20 @@
+name: Timing
+program: scripts/timing.py
+method: grid
+parameters:
+  problem:
+    values: ["Ackley"]
+  dim:
+    values: [4]
+  seed:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+  input_normalization:
+    values: [True]
+  draw_initial_method:
+    values: ['sobol']
+  policy:
+    values:
+      - ThompsonSampling
+      - ExpectedImprovement
+      - Gittins_Lambda_0001
+      - MultiStepLookaheadEI

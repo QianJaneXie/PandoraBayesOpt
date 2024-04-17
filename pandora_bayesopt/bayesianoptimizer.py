@@ -46,163 +46,164 @@ class BayesianOptimizer:
 
     def iterate(self, acquisition_function_class, **acqf_kwargs):
         
+        is_ms = False
         if acquisition_function_class == "RandomSearch":
 
             new_point = torch.rand(1, self.dim)
 
             self.current_acq = self.objective(new_point)
         
-        elif acquisition_function_class == "ThompsonSampling":
-            
-            # Draw sample path(s)
-            paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
-            
-            # Optimize
-            new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
-
-            self.current_acq = new_point_TS
-            
-        else:
-            
+        else: 
             model = fit_gp_model(self.x.detach(), self.y.detach(), input_standardize=self.input_standardize, kernel=self.kernel)
-            is_ms = False
 
             acqf_args = {'model': model}
-
-            if acquisition_function_class == qPredictiveEntropySearch:
-
+        
+            if acquisition_function_class == "ThompsonSampling":
+            
                 # Draw sample path(s)
                 paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
                 
                 # Optimize
                 new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
-                acqf_args['optimal_inputs'] = new_point
-                acqf_args['maximize'] = self.maximize
+                self.current_acq = new_point_TS
 
-            elif acquisition_function_class == UpperConfidenceBound:
-                acqf_args['beta'] = acqf_kwargs['beta']
-                acqf_args['maximize'] = self.maximize
-            
-            elif acquisition_function_class == ExpectedImprovement:
-                acqf_args['best_f'] = self.best_f
-                acqf_args['maximize'] = self.maximize
-
-            elif acquisition_function_class == ExpectedImprovementWithCost:
-                acqf_args['best_f'] = self.best_f
-                acqf_args['maximize'] = self.maximize
-                acqf_args['cost'] = self.cost
-                if acqf_kwargs.get('cost_cooling') == True:
-                    alpha = (self.budget - self.cumulative_cost) / self.budget
-                    alpha = max(alpha, 0)  # Ensure alpha is non-negative
-                    acqf_args['alpha'] = alpha
-
-            elif acquisition_function_class == GittinsIndex:
-                acqf_args['maximize'] = self.maximize
-                if acqf_kwargs.get('step_EIpu') == True:
-                    if self.need_lmbda_update:
-                        if callable(self.cost):
-                            # Optimize EIpu first to get new_point_EIpu
-                            EIpu = ExpectedImprovementWithCost(model=model, best_f=self.best_f, maximize=self.maximize, cost=self.cost)
-                            _, new_point_EIpu = optimize_acqf(
-                                acq_function=EIpu,
-                                bounds=self.bounds,
-                                q=1,
-                                num_restarts=10*self.dim,
-                                raw_samples=200*self.dim,
-                                options={'method': 'L-BFGS-B'},
-                            )
-                            if self.current_lmbda == None:
-                                self.current_lmbda = new_point_EIpu.item() / 2
-                            else:
-                                self.current_lmbda = min(self.current_lmbda, new_point_EIpu.item() / 2)
-
-                        else:
-                            # Optimize EI first to get new_point_EI
-                            EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
-                            _, new_point_EI = optimize_acqf(
-                                acq_function=EI,
-                                bounds=self.bounds,
-                                q=1,
-                                num_restarts=10*self.dim,
-                                raw_samples=200*self.dim,
-                                options={'method': 'L-BFGS-B'},
-                            )
-                            if self.current_lmbda == None:
-                                self.current_lmbda = new_point_EI.item() / 2
-                            else:
-                                self.current_lmbda = min(self.current_lmbda, new_point_EI.item() / 2)
-                        self.need_lmbda_update = False  # Reset the flag
-                    print("current lambda:", self.current_lmbda)
-                    acqf_args['lmbda'] = self.current_lmbda
-                    self.lmbda_history.append(self.current_lmbda)
-
-                elif acqf_kwargs.get('step_divide') == True:
-                    if self.need_lmbda_update:
-                        self.current_lmbda = self.current_lmbda / acqf_kwargs.get('alpha')
-                        self.need_lmbda_update = False
-                    acqf_args['lmbda'] = self.current_lmbda
-                    self.lmbda_history.append(self.current_lmbda)
-
-                else: 
-                    acqf_args['lmbda'] = acqf_kwargs['lmbda']
-
-                acqf_args['cost'] = self.cost
-            elif acquisition_function_class == MultiStepLookaheadEI:
-                is_ms = True
-                acqf_args['batch_size'] = 1
-                acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
-                acqf_args['num_fantasies'] = [1, 1, 1]
-            elif acquisition_function_class == BudgetedMultiStepLookaheadEI:
-                is_ms = True
-                acqf_args['cost_function'] = copy(self.cost)
-                acqf_args['budget_plus_cumulative_cost'] = min(self.budget - self.cumulative_cost, self.c[-4:].sum().item()) + self.c.sum().item()
-                print(acqf_args['budget_plus_cumulative_cost'])
-                acqf_args['batch_size'] = 1
-                acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
-                acqf_args['num_fantasies'] = [1, 1, 1]
             else:
-                acqf_args.update(**acqf_kwargs)
                 
-            acq_function = acquisition_function_class(**acqf_args)
-            if self.suggested_x_full_tree is not None:
-                batch_initial_conditions = warmstart_multistep(
-                        acq_function=acq_function,
-                        bounds=self.bounds,
-                        num_restarts=10 * self.dim,
-                        raw_samples=200 * self.dim,
-                        full_optimizer=self.suggested_x_full_tree,
-                        algo_params=acqf_args,
-                    )
-            else:
-                batch_initial_conditions = None
-            q = acq_function.get_augmented_q_batch_size(1) if is_ms else 1
-            candidates, candidates_acq_vals = optimize_acqf(
-                acq_function=acq_function,
-                bounds=self.bounds,
-                q=q,
-                num_restarts=10 * self.dim,
-                raw_samples=200 * self.dim,
-                options={
-                        "batch_limit": 5,
-                        "maxiter": 200,
-                        "method": "L-BFGS-B",
-                    },
-                batch_initial_conditions=batch_initial_conditions,
-                return_best_only=False,
-                return_full_tree=is_ms,
-            )
+                if acquisition_function_class == qPredictiveEntropySearch:
 
-            candidates =  candidates.detach()
-            
-            if is_ms:
-                # save all tree variables for multi-step initialization
-                self.suggested_x_full_tree = candidates.clone()
-                candidates = acq_function.extract_candidates(candidates)
+                    # Draw sample path(s)
+                    paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
+                    
+                    # Optimize
+                    new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
-            best_idx = torch.argmax(candidates_acq_vals.view(-1), dim=0)
-            new_point = candidates[best_idx]
-            self.current_acq = candidates_acq_vals[best_idx]
+                    acqf_args['optimal_inputs'] = new_point
+                    acqf_args['maximize'] = self.maximize
+
+                elif acquisition_function_class == UpperConfidenceBound:
+                    acqf_args['beta'] = acqf_kwargs['beta']
+                    acqf_args['maximize'] = self.maximize
+                
+                elif acquisition_function_class == ExpectedImprovement:
+                    acqf_args['best_f'] = self.best_f
+                    acqf_args['maximize'] = self.maximize
+
+                elif acquisition_function_class == ExpectedImprovementWithCost:
+                    acqf_args['best_f'] = self.best_f
+                    acqf_args['maximize'] = self.maximize
+                    acqf_args['cost'] = self.cost
+                    if acqf_kwargs.get('cost_cooling') == True:
+                        alpha = (self.budget - self.cumulative_cost) / self.budget
+                        alpha = max(alpha, 0)  # Ensure alpha is non-negative
+                        acqf_args['alpha'] = alpha
+
+                elif acquisition_function_class == GittinsIndex:
+                    acqf_args['maximize'] = self.maximize
+                    if acqf_kwargs.get('step_EIpu') == True:
+                        if self.need_lmbda_update:
+                            if callable(self.cost):
+                                # Optimize EIpu first to get new_point_EIpu
+                                EIpu = ExpectedImprovementWithCost(model=model, best_f=self.best_f, maximize=self.maximize, cost=self.cost)
+                                _, new_point_EIpu = optimize_acqf(
+                                    acq_function=EIpu,
+                                    bounds=self.bounds,
+                                    q=1,
+                                    num_restarts=10*self.dim,
+                                    raw_samples=200*self.dim,
+                                    options={'method': 'L-BFGS-B'},
+                                )
+                                if self.current_lmbda == None:
+                                    self.current_lmbda = new_point_EIpu.item() / 2
+                                else:
+                                    self.current_lmbda = min(self.current_lmbda, new_point_EIpu.item() / 2)
+
+                            else:
+                                # Optimize EI first to get new_point_EI
+                                EI = ExpectedImprovement(model=model, best_f=self.best_f, maximize=self.maximize)
+                                _, new_point_EI = optimize_acqf(
+                                    acq_function=EI,
+                                    bounds=self.bounds,
+                                    q=1,
+                                    num_restarts=10*self.dim,
+                                    raw_samples=200*self.dim,
+                                    options={'method': 'L-BFGS-B'},
+                                )
+                                if self.current_lmbda == None:
+                                    self.current_lmbda = new_point_EI.item() / 2
+                                else:
+                                    self.current_lmbda = min(self.current_lmbda, new_point_EI.item() / 2)
+                            self.need_lmbda_update = False  # Reset the flag
+                        print("current lambda:", self.current_lmbda)
+                        acqf_args['lmbda'] = self.current_lmbda
+                        self.lmbda_history.append(self.current_lmbda)
+
+                    elif acqf_kwargs.get('step_divide') == True:
+                        if self.need_lmbda_update:
+                            self.current_lmbda = self.current_lmbda / acqf_kwargs.get('alpha')
+                            self.need_lmbda_update = False
+                        acqf_args['lmbda'] = self.current_lmbda
+                        self.lmbda_history.append(self.current_lmbda)
+
+                    else: 
+                        acqf_args['lmbda'] = acqf_kwargs['lmbda']
+
+                    acqf_args['cost'] = self.cost
+                elif acquisition_function_class == MultiStepLookaheadEI:
+                    is_ms = True
+                    acqf_args['batch_size'] = 1
+                    acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
+                    acqf_args['num_fantasies'] = [1, 1, 1]
+                elif acquisition_function_class == BudgetedMultiStepLookaheadEI:
+                    is_ms = True
+                    acqf_args['cost_function'] = copy(self.cost)
+                    acqf_args['budget_plus_cumulative_cost'] = min(self.budget - self.cumulative_cost, self.c[-4:].sum().item()) + self.c.sum().item()
+                    print(acqf_args['budget_plus_cumulative_cost'])
+                    acqf_args['batch_size'] = 1
+                    acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
+                    acqf_args['num_fantasies'] = [1, 1, 1]
+                else:
+                    acqf_args.update(**acqf_kwargs)
+                    
+                acq_function = acquisition_function_class(**acqf_args)
+                if self.suggested_x_full_tree is not None:
+                    batch_initial_conditions = warmstart_multistep(
+                            acq_function=acq_function,
+                            bounds=self.bounds,
+                            num_restarts=10 * self.dim,
+                            raw_samples=200 * self.dim,
+                            full_optimizer=self.suggested_x_full_tree,
+                            algo_params=acqf_args,
+                        )
+                else:
+                    batch_initial_conditions = None
+                q = acq_function.get_augmented_q_batch_size(1) if is_ms else 1
+                candidates, candidates_acq_vals = optimize_acqf(
+                    acq_function=acq_function,
+                    bounds=self.bounds,
+                    q=q,
+                    num_restarts=10 * self.dim,
+                    raw_samples=200 * self.dim,
+                    options={
+                            "batch_limit": 5,
+                            "maxiter": 200,
+                            "method": "L-BFGS-B",
+                        },
+                    batch_initial_conditions=batch_initial_conditions,
+                    return_best_only=False,
+                    return_full_tree=is_ms,
+                )
+
+                candidates =  candidates.detach()
+                
+                if is_ms:
+                    # save all tree variables for multi-step initialization
+                    self.suggested_x_full_tree = candidates.clone()
+                    candidates = acq_function.extract_candidates(candidates)
+
+                best_idx = torch.argmax(candidates_acq_vals.view(-1), dim=0)
+                new_point = candidates[best_idx]
+                self.current_acq = candidates_acq_vals[best_idx]
         
         
         new_value = self.objective(new_point.detach())
