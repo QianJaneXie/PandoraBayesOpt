@@ -13,8 +13,8 @@ requirements = [
     "ipywidgets>=8.1.1",
     "scikit-learn>=1.1",
     "pandas>=2.2",
-    "ConfigSpace<=0.6.1",
-    "hpobench @ git+https://github.com/automl/HPOBench@0.0.10",
+    # "ConfigSpace<=0.6.1",
+    # "hpobench @ git+https://github.com/automl/HPOBench@0.0.10",
     "openml>=0.14.2"
 ]
 
