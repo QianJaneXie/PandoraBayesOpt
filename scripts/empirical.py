@@ -29,6 +29,7 @@ def run_bayesopt_experiment(config):
     print(config)
 
     problem = config['problem']
+    print("problem:", problem)
 
     if problem == "LunarLander":
         dim = 12
@@ -168,6 +169,18 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=MultiStepLookaheadEI
         )
+    elif policy == 'Gittins_Lambda_01':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.01
+        )
+    elif policy == 'Gittins_Lambda_001':
+        Optimizer.run(
+            num_iterations = num_iterations, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.001
+        )
     elif policy == 'Gittins_Lambda_0001':
         Optimizer.run(
             num_iterations = num_iterations, 
@@ -181,6 +194,26 @@ def run_bayesopt_experiment(config):
             step_divide = True,
             alpha = 2
         )
+    elif policy == 'Gittins_Step_Divide5':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 5
+        )
+    elif policy == 'Gittins_Step_Divide10':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            alpha = 10
+        )
+    elif policy == 'Gittins_Step_EIpu':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=GittinsIndex,
+            step_EIpu = True
+        )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     runtime_history = Optimizer.get_runtime_history()
@@ -190,14 +223,16 @@ def run_bayesopt_experiment(config):
     print("Runtime history:", runtime_history)
     print()
 
-    if problem == "RobotPushing4D" or "RobotPushing14D":
-        return (-1, cost_history, best_history, runtime_history)
-    else:
-        return (1, cost_history, best_history, runtime_history)
+    if problem == "LunarLander" or "PestControl":
+        return 1, cost_history, best_history, runtime_history
+    elif problem == "RobotPushing4D" or "RobotPushing14D":
+        return -1, cost_history, best_history, runtime_history
+    else: 
+        return 1, cost_history, best_history, runtime_history
 
 wandb.init(resume=True)
 
-(scaled_constant, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
+scaled_constant, cost_history, best_history, runtime_history = run_bayesopt_experiment(wandb.config)
 
 for cost, best, runtime in zip(cost_history, best_history, runtime_history):
     wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "run time": runtime})
