@@ -1,23 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
-import sys
-import scipy.io
-import numpy as np
-import pandas as pd
-# from hpobench.benchmarks.ml.tabular_benchmark import TabularBenchmark
-# from ConfigSpace.hyperparameters import OrdinalHyperparameter
-# from ConfigSpace.configuration_space import ConfigurationSpace
 from pandora_bayesopt.test_functions.lunar_lander import LunarLanderProblem
 from pandora_bayesopt.test_functions.pest_control import PestControl
+from pandora_bayesopt.test_functions.robot_pushing.robot_pushing import robot_pushing_3d, robot_pushing_4d, robot_pushing_14d
 
 import torch
 from typing import Dict
-from pandora_bayesopt.utils import fit_gp_model
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
-from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
@@ -25,12 +15,12 @@ from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySear
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
-import matplotlib.pyplot as plt
+import numpy as np
 import wandb
 
 
 # use a GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
@@ -39,82 +29,94 @@ def run_bayesopt_experiment(config):
     print(config)
 
     problem = config['problem']
-    # if problem == "FreeSolv":
-    #     dim = 3
-        
-    #     script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-    #     df = pd.read_csv(script_dir + "/data/freesolv/freesolv_NN_rep3dim.csv")
-    #     data_x_3D = torch.tensor(df[["x1", "x2", "x3"]].values, dtype=torch.float64)
-    #     data_y = torch.tensor(df["expt"], dtype=torch.float64)
-
-    #     # Fit the GP model using the data
-    #     torch.manual_seed(0)
-    #     objective_model = fit_gp_model(data_x_3D, data_y, input_standardize=True)
-        
-    #     # Define the objective function
-    #     scaled_constant = 10
-    #     def objective_function(X):
-    #         if X.ndim == 1:
-    #             X = X.unsqueeze(0)
-    #         posterior_X = objective_model.posterior(X)
-    #         objective_X = posterior_X.mean.detach()
-    #         return objective_X/scaled_constant
-        
-    #     global_optimum_value = 25.591700836662685
-
-    #     num_iterations = 80
-
-    # if problem == "NN":
-    #     dim = 5
-    #     scaled_constant = -1
-    #     global_optimum_value = 0.08956228956228955
-    #     num_iterations = 60
-
-    #     benchmark = TabularBenchmark('nn', 31)
-
-    #     def find_nearest_ordinal(value: float, hyperparameter_type: OrdinalHyperparameter):
-    #         # Convert the sequence to a PyTorch tensor
-    #         valid_values = torch.tensor(hyperparameter_type.sequence)
-            
-    #         # Calculate the nearest value using torch operations
-    #         nearest = torch.argmin((valid_values - value) ** 2).item()
-    #         order = hyperparameter_type.get_seq_order()
-
-    #         return hyperparameter_type.get_value(order[nearest])
-
-    #     def round_to_valid_config(values: Dict[str, float], space: ConfigurationSpace):
-    #         # Iterate over hyperparameters using a dictionary comprehension
-    #         return {hyperparameter.name: find_nearest_ordinal(values[hyperparameter.name], hyperparameter) for hyperparameter in space.get_hyperparameters()}
-
-    #     def objective_function(values: torch.Tensor):
-    #         results = []
-    #         for i in range(values.size(0)):  # Looping over each point
-    #             config = {
-    #                 "alpha": 10 ** ((values[i, 0].detach().item() - 1) * 8),
-    #                 "batch_size": 2 ** (values[i, 1].detach().item() * 8),
-    #                 "depth": int(2 * values[i, 2].detach().item() + 1),  # Ensuring depth is an integer
-    #                 "learning_rate_init": 10 ** ((values[i, 3].detach().item() - 1) * 5),
-    #                 "width": 2 ** (values[i, 4].detach().item() * 10)
-    #             }
-
-    #             result = benchmark.objective_function(round_to_valid_config(config, benchmark.configuration_space))
-    #             results.append(result['function_value'])
-
-    #         return torch.tensor(results)/scaled_constant  # Convert the list of results to an N*1 tensor
 
     if problem == "LunarLander":
         dim = 12
-        num_iterations = 40*dim
+        num_iterations = 200
         def objective_function(X):
             return LunarLanderProblem()(X)
         
     if problem == "PestControl":
         dim = 25
-        num_iterations = 4*dim
+        num_iterations = 100
         def objective_function(X):
             choice_X = torch.floor(5*X)
             choice_X[choice_X == 5] = 4
             return PestControl(negate=True)(choice_X)
+        
+    if problem == "RobotPushing4D":
+        dim = 4
+        num_iterations = 40
+        target_location = torch.tensor([-4.4185, -4.3709])
+        def unnorm_X(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = X.clone()
+            # Check if the tensor is higher than 3-dimensional
+            if X.dim() > 3:
+                # Assuming the extra unwanted dimension is at position 1 (the second position)
+                X_unnorm = X_unnorm.view(-1, X.size(-1))  # Remove the singleton dimension
+            # Check if the tensor is 3-dimensional
+            if X.dim() == 3:
+                # Assuming the extra unwanted dimension is at position 1 (the second position)
+                X_unnorm = X_unnorm.squeeze(1)  # Remove the singleton dimension
+            elif X.dim() == 1:
+                # If 1-dimensional, add a dimension to make it 2D (e.g., for batch size of 1)
+                X_unnorm = X_unnorm.unsqueeze(0)
+            X_unnorm[:, :2] = 10.0 * X_unnorm[:, :2] - 5.0
+            X_unnorm[:, 2] = 29.0 * X_unnorm[:, 2] + 1.0
+            X_unnorm[:, 3] = 2 * 3.14 * X_unnorm[:, 3]
+            return X_unnorm
+
+        def objective_function(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = unnorm_X(X)
+            objective_X = []
+            for x in X_unnorm:
+                # Set the seed based on X to ensure consistent randomness
+                np.random.seed(0)
+                object_location = torch.tensor(robot_pushing_4d(x[0].item(), x[1].item(), x[2].item(), x[3].item()))
+                objective_X.append(-torch.dist(target_location, object_location))
+            np.random.seed()  # Reset the seed
+            return torch.tensor(objective_X)
+        
+    if problem == "RobotPushing14D":
+        dim = 14
+        num_iterations = 400
+        target_location = torch.tensor([-4.4185, -4.3709])
+        target_location2 = torch.tensor([-3.7641, -4.4742])
+        def unnorm_X(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = X.clone()
+            # Check if the tensor is higher than 3-dimensional
+            if X.dim() > 3:
+                # Assuming the extra unwanted dimension is at position 1 (the second position)
+                X_unnorm = X_unnorm.view(-1, X.size(-1))  # Remove the singleton dimension
+            # Check the dimensionality of X and adjust accordingly
+            if X.dim() == 3:
+                # Remove the singleton dimension assuming it's the second one
+                X_unnorm = X_unnorm.squeeze(1)
+            elif X.dim() == 1:
+                # If 1-dimensional, add a dimension to make it 2D (e.g., for batch size of 1)
+                X_unnorm = X_unnorm.unsqueeze(0)
+            X_unnorm[:, :2] = 10.0 * X_unnorm[:, :2] - 5.0
+            X_unnorm[:, 2:4] = 5 * X_unnorm[:, 2:4]
+            X_unnorm[:, 4] = 29.0 * X_unnorm[:, 4] + 1.0
+            X_unnorm[:, 5] = 2 * np.pi * X_unnorm[:, 5]
+            X_unnorm[:, 6:8] = 10.0 * X_unnorm[:, 6:8] - 5.0
+            X_unnorm[:, 8:10] = 5 * X_unnorm[:, 8:10]
+            X_unnorm[:, 10] = 29 * X_unnorm[:, 10] + 1.0
+            X_unnorm[:, 11] = 2 * np.pi * X_unnorm[:, 11]
+            X_unnorm[:, 12:] = 2 * np.pi * X_unnorm[:, 12:]
+
+            return X_unnorm
+
+        def objective_function(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = unnorm_X(X)
+            objective_X = []
+            for x in X_unnorm:
+                # Set the seed based on X to ensure consistent randomness
+                np.random.seed(0)
+                object_location, object_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
+                objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
+            np.random.seed()  # Reset the seed
+            return torch.tensor(objective_X)
 
     seed = config['seed']
     torch.manual_seed(seed)
@@ -166,18 +168,6 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=MultiStepLookaheadEI
         )
-    elif policy == 'Gittins_Lambda_01':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class = GittinsIndex,
-            lmbda = 0.01
-        )
-    elif policy == 'Gittins_Lambda_001':
-        Optimizer.run(
-            num_iterations = num_iterations, 
-            acquisition_function_class = GittinsIndex,
-            lmbda = 0.001
-        )
     elif policy == 'Gittins_Lambda_0001':
         Optimizer.run(
             num_iterations = num_iterations, 
@@ -191,47 +181,25 @@ def run_bayesopt_experiment(config):
             step_divide = True,
             alpha = 2
         )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
-        )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    # regret_history = Optimizer.get_regret_history(global_optimum_value/scaled_constant)
+    runtime_history = Optimizer.get_runtime_history()
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
-    # print("Regret history:", regret_history)
+    print("Runtime history:", runtime_history)
     print()
 
-    # return (scaled_constant, cost_history, best_history, regret_history)
-    return (cost_history, best_history)
+    if problem == "RobotPushing4D" or "RobotPushing14D":
+        return (-1, cost_history, best_history, runtime_history)
+    else:
+        return (1, cost_history, best_history, runtime_history)
 
 wandb.init(resume=True)
 
-# (scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
-(cost_history, best_history) = run_bayesopt_experiment(wandb.config)
+(scaled_constant, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
 
-# for cost, best, regret in zip(cost_history, best_history, regret_history):
-#     wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": -scaled_constant*regret, "log(regret)":np.log10(-scaled_constant)+np.log10(regret)})
-
-for cost, best in zip(cost_history, best_history):
-    wandb.log({"cumulative cost": cost, "best observed": best})
+for cost, best, runtime in zip(cost_history, best_history, runtime_history):
+    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "run time": runtime})
 
 wandb.finish()
