@@ -1,26 +1,30 @@
-name: Empirical_CostAware
+name: PestControl_CostAware
 program: scripts/empirical_cost_aware.py
 method: grid
 parameters:
   problem:
-    values: ['LDA']
+    values: ["PestControl"]
   seed:
-    values: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
   input_normalization:
     value: True
   draw_initial_method:
     values: ['sobol']
   policy:
     values:
-      - ExpectedImprovement
-      - ExpectedImprovementWithCost_Uniform
-      - ExpectedImprovementWithCost_Cooling
-      - BudgetedMultiStepExpectedImprovement
-      - Gittins_Lambda_01
-      - Gittins_Lambda_001
+      - RandomSearch
+      - ExpectedImprovementWithoutCost
+      - ExpectedImprovementPerUnitCost
+      # - ExpectedImprovementWithCostCooling
+      # - Gittins_Lambda_01
+      # - Gittins_Lambda_001
       - Gittins_Lambda_0001
       - Gittins_Step_Divide2
-      - Gittins_Step_Divide5
-      - Gittins_Step_Divide10
-      - Gittins_Step_EIpu
+      # - Gittins_Step_Divide5
+      # - Gittins_Step_Divide10
+      # - Gittins_Step_EIpu
+      - BudgetedMultiStepLookaheadEI
+  budget:
+    value: 800
+
 

@@ -1,4 +1,6 @@
-# Source: GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/pest_control.py
+# Uniform-cost and cost-aware version of Pest Control problem 
+# Based on GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/pest_control.py
+# and GitHub repo by QUVA Deep Vision Lab https://github.com/QUVA-Lab/COMBO/blob/9529eabb86365ce3a2ca44fff08291a09a853ca2/COMBO/experiments/test_functions/multiple_categorical.py#L81
 
 from typing import Optional
 
@@ -68,6 +70,26 @@ def _pest_control_score(x, seed=None):
         curr_pest_frac = next_pest_frac
 
     return payed_price_sum + above_threshold
+
+def pest_control_price(x):
+    control_price_max_discount = torch.tensor([0.0, 0.2, 0.3, 0.3, 0.0])
+    control_price = torch.tensor([0.0, 1.0, 0.8, 0.7, 0.5])
+    
+    # Convert squeezed tensor to integer tensor
+    x_int = x.int()
+    
+    # Calculate the number of times each element appears in x
+    x_counts = torch.eq(x_int.unsqueeze(1), x_int).sum(dim=0)
+    
+    # Calculate payed prices using vectorized operations
+    payed_prices = control_price[x_int] * (
+        1.0 - control_price_max_discount[x_int] / float(x_int.size(0)) * x_counts
+    )
+    
+    # Sum up the payed prices
+    payed_price_sum = payed_prices.sum()
+    
+    return payed_price_sum
 
 
 class PestControl(BaseTestProblem):

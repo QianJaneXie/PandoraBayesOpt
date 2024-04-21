@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
-import sys
-import scipy.io
+from pandora_bayesopt.test_functions.robot_pushing.robot_pushing import robot_pushing_4d, robot_pushing_14d
+from pandora_bayesopt.test_functions.pest_control import PestControl, pest_control_price
+
 import torch
-from pandora_bayesopt.utils import fit_gp_model
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
@@ -13,7 +12,6 @@ from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
-import matplotlib.pyplot as plt
 import wandb
 from scipy.interpolate import interp1d
 
@@ -28,46 +26,107 @@ def run_bayesopt_experiment(config):
     print(config)
 
     problem = config['problem']
-    if problem == "LDA":
-        dim = 3
-        maximize = True
-        
-        script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-        data = scipy.io.loadmat(script_dir + "/data/lda/lda_on_grid.mat")
-        data = data["lda_on_grid"]
-        X = torch.tensor(data[:, :3])
-        X[:, 0] = 2.0 * X[:, 0] - 1.0
-        X[:, 1] = torch.log2(X[:, 1]) / 10.0
-        X[:, 2] = torch.log2(X[:, 2]) / 14.0
-        objective_X = -torch.tensor(data[:, 3]).unsqueeze(-1)
-        cost_X = torch.tensor(data[:, 4]).unsqueeze(-1) / 3600.0
-        
-        torch.manual_seed(0)
-        objective_model = fit_gp_model(X, objective_X, input_standardize=True)
-        
-        
-        # Define the objective function
-        scaled_constant = 1000
+
+    if problem == "PestControl":
+        dim = 25
         def objective_function(X):
-            if X.ndim == 1:
-                X = X.unsqueeze(0)
-            posterior_X = objective_model.posterior(X)
-            objective_X = posterior_X.mean.detach()
-            return objective_X/scaled_constant
-        
-        global_optimum_value = -1.2606842790227435
-
-        log_cost_X = torch.log(cost_X)
-        log_cost_model = fit_gp_model(X, log_cost_X, input_standardize=True)
-        
-        
-        # Define the cost function
+            choice_X = torch.floor(5*X)
+            choice_X[choice_X == 5] = 4
+            return PestControl(negate=True)(choice_X)
         def cost_function(X):
-            posterior_X = log_cost_model.posterior(X)
-            cost_X = torch.exp(posterior_X.mean)
-            return cost_X.squeeze(-1)
+            choice_X = torch.floor(5*X)
+            choice_X[choice_X == 5] = 4
+            res = torch.stack([pest_control_price(x) for x in choice_X]).to(choice_X)
+            # Add a small amount of noise to prevent training instabilities
+            res += 1e-6 * torch.randn_like(res)
+            return res 
 
-        budget = 80
+    if problem == "RobotPushing4D":
+        dim = 4
+        target_location = torch.tensor([-4.4185, -4.3709])
+        def unnorm_X(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = X.clone()
+            # Check if the tensor is higher than 3-dimensional
+            if X.dim() > 3:
+                # Assuming the extra unwanted dimension is at position 1 (the second position)
+                X_unnorm = X_unnorm.view(-1, X.size(-1))  # Remove the singleton dimension
+            # Check if the tensor is 3-dimensional
+            if X.dim() == 3:
+                # Assuming the extra unwanted dimension is at position 1 (the second position)
+                X_unnorm = X_unnorm.squeeze(1)  # Remove the singleton dimension
+            elif X.dim() == 1:
+                # If 1-dimensional, add a dimension to make it 2D (e.g., for batch size of 1)
+                X_unnorm = X_unnorm.unsqueeze(0)
+            X_unnorm[:, :2] = 10.0 * X_unnorm[:, :2] - 5.0
+            X_unnorm[:, 2] = 29.0 * X_unnorm[:, 2] + 1.0
+            X_unnorm[:, 3] = 2 * 3.14 * X_unnorm[:, 3]
+            return X_unnorm
+
+        def objective_function(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = unnorm_X(X)
+            objective_X = []
+            for x in X_unnorm:
+                # Set the seed based on X to ensure consistent randomness
+                np.random.seed(0)
+                object_location = torch.tensor(robot_pushing_4d(x[0].item(), x[1].item(), x[2].item(), x[3].item()))
+                objective_X.append(-torch.dist(target_location, object_location))
+            np.random.seed()  # Reset the seed
+            return torch.tensor(objective_X)
+        
+        def cost_function(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = unnorm_X(X)
+
+            return X_unnorm[:, 2]
+        
+    if problem == "RobotPushing14D":
+        cost_function_type = config["cost_function_type"]
+        dim = 14
+        target_location = torch.tensor([-4.4185, -4.3709])
+        target_location2 = torch.tensor([-3.7641, -4.4742])
+        def unnorm_X(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = X.clone()
+            # Check if the tensor is higher than 3-dimensional
+            if X.dim() > 3:
+                # Assuming the extra unwanted dimension is at position 1 (the second position)
+                X_unnorm = X_unnorm.view(-1, X.size(-1))  # Remove the singleton dimension
+            # Check the dimensionality of X and adjust accordingly
+            if X.dim() == 3:
+                # Remove the singleton dimension assuming it's the second one
+                X_unnorm = X_unnorm.squeeze(1)
+            elif X.dim() == 1:
+                # If 1-dimensional, add a dimension to make it 2D (e.g., for batch size of 1)
+                X_unnorm = X_unnorm.unsqueeze(0)
+            X_unnorm[:, :2] = 10.0 * X_unnorm[:, :2] - 5.0
+            X_unnorm[:, 2:4] = 5 * X_unnorm[:, 2:4]
+            X_unnorm[:, 4] = 29.0 * X_unnorm[:, 4] + 1.0
+            X_unnorm[:, 5] = 2 * np.pi * X_unnorm[:, 5]
+            X_unnorm[:, 6:8] = 10.0 * X_unnorm[:, 6:8] - 5.0
+            X_unnorm[:, 8:10] = 5 * X_unnorm[:, 8:10]
+            X_unnorm[:, 10] = 29 * X_unnorm[:, 10] + 1.0
+            X_unnorm[:, 11] = 2 * np.pi * X_unnorm[:, 11]
+            X_unnorm[:, 12:] = 2 * np.pi * X_unnorm[:, 12:]
+
+            return X_unnorm
+
+        def objective_function(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = unnorm_X(X)
+            objective_X = []
+            for x in X_unnorm:
+                # Set the seed based on X to ensure consistent randomness
+                np.random.seed(0)
+                object_location, object_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
+                objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
+            np.random.seed()  # Reset the seed
+            return torch.tensor(objective_X)
+        
+        def cost_function(X: torch.Tensor) -> torch.Tensor:
+            X_unnorm = unnorm_X(X)
+
+            if cost_function_type == "mean":
+                return (X_unnorm[:, 4] + X_unnorm[:, 10]) / 2
+            if cost_function_type == "max":
+                return torch.max(X_unnorm[:, 4], X_unnorm[:, 10])
+        
 
     seed = config['seed']
     torch.manual_seed(seed)
@@ -76,6 +135,8 @@ def run_bayesopt_experiment(config):
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
     input_standardize = config['input_normalization']
+    budget = config['budget']
+    maximize = True
 
     # Test performance of different policies
     policy = config['policy']
@@ -89,26 +150,31 @@ def run_bayesopt_experiment(config):
         cost=cost_function,
         input_standardize=input_standardize
     )
-    if policy == 'ExpectedImprovement':
+    if policy == 'RandomSearch':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class="RandomSearch"
+        )
+    if policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'BudgetedMultiStepExpectedImprovement':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=BudgetedMultiStepLookaheadEI
-        )
-    elif policy == 'ExpectedImprovementWithCost_Uniform':
+    elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost
         )
-    elif policy == 'ExpectedImprovementWithCost_Cooling':
+    elif policy == 'ExpectedImprovementWithCostCooling':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost,
             cost_cooling = True
+        )
+    elif policy == 'BudgetedMultiStepLookaheadEI':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=BudgetedMultiStepLookaheadEI
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
@@ -157,30 +223,26 @@ def run_bayesopt_experiment(config):
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    regret_history = Optimizer.get_regret_history(global_optimum_value)
+    runtime_history = Optimizer.get_runtime_history()
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
-    print("Regret history:", regret_history)
+    print("Runtime history:", runtime_history)
     print()
 
-    return (budget, scaled_constant, cost_history, best_history, regret_history)
+    return (budget, cost_history, best_history, runtime_history)
 
 wandb.init()
-(budget, scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
 
-for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": -scaled_constant*best, "raw regret": scaled_constant*regret, "raw log(regret)":np.log10(scaled_constant)+np.log10(regret)})
+for cost, best, runtime in zip(cost_history, best_history, runtime_history):
+    wandb.log({"raw cumulative cost": cost, "raw best observed": -best, "run time": runtime})
 
-interp_cost = np.linspace(0, budget, num=int(10*budget)+1)
+interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_best = interp_func_best(interp_cost)
-interp_func_regret = interp1d(cost_history, regret_history, kind='linear', bounds_error=False, fill_value="extrapolate")
-interp_regret = interp_func_regret(interp_cost)
-interp_func_log_regret = interp1d(cost_history, list(np.log10(regret_history)), kind='linear', bounds_error=False, fill_value="extrapolate")
-interp_log_regret = interp_func_log_regret(interp_cost)
 
-for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
-    wandb.log({"cumulative cost": cost, "best observed": -scaled_constant*best, "regret": scaled_constant*regret, "log(regret)": np.log10(scaled_constant)+log_regret})
+for cost, best in zip(interp_cost, interp_best):
+    wandb.log({"cumulative cost": cost, "best observed": -best})
 
 wandb.finish()
