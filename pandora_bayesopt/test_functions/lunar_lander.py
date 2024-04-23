@@ -1,4 +1,5 @@
-# Source: GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/lunar_lander.py
+# Uniform-cost and cost-aware version of Lunar Lander problem 
+# Based on GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/lunar_lander.py
 __credits__ = ["Andrea PIERRÉ"]
 
 import math
@@ -858,7 +859,7 @@ def simulate_lunar_rover(p):
             break
     if steps > 500:
         print(steps, total_reward)
-    return total_reward
+    return total_reward, steps
 
 
 class LunarLanderProblem(BaseTestProblem):
@@ -892,12 +893,14 @@ class LunarLanderProblem(BaseTestProblem):
             for env_seed in range(n_envs):
                 params.append((x.cpu(), env_seed))
         with Pool(16) as p:
-            reward = p.map(simulate_lunar_rover, params)
+            results = p.map(simulate_lunar_rover, params)
         # convert to len(X) x n_envs
-        reward = torch.tensor(reward).view(-1, n_envs) 
+        reward = torch.tensor(results)[:, 0].view(-1, n_envs) 
+        steps = torch.tensor(results)[:, 1].view(-1, n_envs)
         # average over envs
         reward = reward.mean(1) 
-        return reward.to(X)
+        steps = steps.mean(1)
+        return reward.to(X), steps.to(X)
 
 
 if __name__ == "__main__":
