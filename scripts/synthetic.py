@@ -2,7 +2,7 @@
 # coding: utf-8
 
 import torch
-from botorch.test_functions.synthetic import Ackley, DropWave, Shekel, Rosenbrock, Levy
+from botorch.test_functions.synthetic import Ackley, Rosenbrock, Levy
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
@@ -41,20 +41,6 @@ def run_bayesopt_experiment(config):
         def objective_function(X):
             return ackley_function(2*X-1)/scaled_constant
         global_optimum_value = 0
-    # if problem == 'DropWave_2D':
-    #     dim = 2
-    #     dropwave_function = DropWave()
-    #     scaled_constant = -1
-    #     def objective_function(X):
-    #         return dropwave_function(10.24*X-5.12)/scaled_constant
-    #     global_optimum_value = -1.0
-    # if problem == 'Shekel5_4D':
-    #     dim = 4
-    #     shekel_function = Shekel(m=5)
-    #     scaled_constant = -2
-    #     def objective_function(X):
-    #         return shekel_function(10*X)/scaled_constant
-    #     global_optimum_value = -10.1532
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
         scaled_constant = -1000
@@ -74,10 +60,10 @@ def run_bayesopt_experiment(config):
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
 
     Optimizer = BayesianOptimizer(
-        objective=objective_function, 
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x,
+        objective=objective_function,
         input_standardize=input_standardize
     )
     if policy == 'RandomSearch':

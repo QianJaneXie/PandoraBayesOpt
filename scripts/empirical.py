@@ -133,10 +133,10 @@ def run_bayesopt_experiment(config):
     print("policy:", policy)
     
     Optimizer = BayesianOptimizer(
-        objective=objective_function, 
         dim=dim, 
         maximize=maximize, 
         initial_points=init_x, 
+        objective=objective_function,
         input_standardize=input_standardize
     )
     if policy == 'RandomSearch':
