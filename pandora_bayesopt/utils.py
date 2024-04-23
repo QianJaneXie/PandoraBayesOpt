@@ -1,4 +1,6 @@
+from typing import Optional
 import torch
+from torch import Tensor
 from botorch.models import SingleTaskGP
 from botorch.models.transforms.outcome import Standardize
 from botorch.fit import fit_gpytorch_model
@@ -11,14 +13,29 @@ from botorch.optim import optimize_acqf
 import numpy as np
 from scipy.optimize import differential_evolution
 
-def fit_gp_model(X, Y, kernel=None, Yvar=None, input_standardize=False, noise_level=1e-4):
+def fit_gp_model(
+        X: Tensor, 
+        objective_X: Tensor, 
+        cost_X: Tensor, 
+        unknown_cost: bool = False, 
+        kernel: Optional[torch.nn.Module] = None, 
+        Yvar: Optional[torch.Tensor] = None, 
+        input_standardize: bool =False, 
+        noise_level: float = 1e-4
+    ):
     # Ensure X is a 2D tensor [num_data, num_features]
     if X.ndim == 1:
         X = X.unsqueeze(dim=-1)
     
-    # Ensure Y is a 2D tensor [num_data, 1]
-    if Y.ndim == 1:
-        Y = Y.unsqueeze(dim=-1)
+    # Ensure objective_X is a 2D tensor [num_data, 1]
+    if objective_X.ndim == 1:
+        objective_X = objective_X.unsqueeze(dim=-1)
+
+    # Ensure cost_X is a 2D tensor [num_data, 1]
+    if cost_X.ndim == 1:
+        log_cost_X = torch.log(cost_X).unsqueeze(dim=-1)
+
+    Y = torch.cat((objective_X, log_cost_X), dim=-1) if unknown_cost else objective_X
         
     if Yvar is None:
         Yvar = torch.ones(len(Y)) * noise_level
