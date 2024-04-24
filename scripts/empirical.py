@@ -223,12 +223,10 @@ def run_bayesopt_experiment(config):
     print("Runtime history:", runtime_history)
     print()
 
-    if problem == "LunarLander" or "PestControl":
+    if problem == "LunarLander":
         return 1, cost_history, best_history, runtime_history
-    elif problem == "RobotPushing4D" or "RobotPushing14D":
+    else:
         return -1, cost_history, best_history, runtime_history
-    else: 
-        return 1, cost_history, best_history, runtime_history
 
 wandb.init(resume=True)
 
