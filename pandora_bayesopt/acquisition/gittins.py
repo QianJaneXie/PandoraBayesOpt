@@ -1,3 +1,4 @@
+from typing import Callable, Optional, Union
 import torch
 from torch import Tensor
 from torch.autograd import (Function, grad)
@@ -5,7 +6,6 @@ from botorch.acquisition import AnalyticAcquisitionFunction, ExpectedImprovement
 from botorch.models.model import Model
 from botorch.acquisition.analytic import (_scaled_improvement, _ei_helper)
 from botorch.acquisition.objective import PosteriorTransform
-from typing import Dict, Optional, Tuple, Union
 from botorch.utils.transforms import t_batch_mode_transform
 from botorch.utils.probability.utils import (
     ndtr as Phi,
@@ -18,7 +18,17 @@ torch.set_default_dtype(torch.float64)
 class GittinsIndexFunction(Function):
     @staticmethod
         
-    def forward(ctx, X: torch.Tensor, mean: torch.Tensor, sigma: torch.Tensor, lmbda: float, maximize: bool, bound: torch.Tensor, eps: float, cost_X):
+    def forward(
+        ctx, 
+        X: Tensor, 
+        mean: Tensor, 
+        sigma: Tensor, 
+        lmbda: float, 
+        maximize: bool, 
+        bound: Tensor, 
+        eps: float, 
+        cost_X: Union[float, Tensor]
+    ):
 
         def cost_adjusted_expected_improvement(best_f):
             u = _scaled_improvement(mean, sigma, best_f, maximize)
@@ -124,34 +134,38 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         self,
         model: Model,
         lmbda: float,
-        posterior_transform: Optional[PosteriorTransform] = None,
         maximize: bool = True,
         bound: torch.Tensor = torch.tensor([[-1.0], [1.0]], dtype=torch.float64),
         eps: float = 1e-6,
-        cost = None
+        cost: Optional[Callable] = None,
+        unknown_cost: bool = False
     ):
-        r"""Single-outcome Gittins Index (analytic).
+        r"""Single-outcome/Two-outcome Gittins Index (analytic).
         
         Args:
-            model: A fitted single-outcome model.
+            model: A fitted single-outcome model or a fitted two-outcome model, 
+                where the first output corresponds to the objective 
+                and the second one to the log-cost.
             lmbda: A scalar representing the Lagrangian multiplier of the budget constraint/cost function.
             cost: Either a scalar or a `b`-dim Tensor (batch mode) representing
                 the cost function.
-            posterior_transform: A PosteriorTransform. If using a multi-output model,
-                a PosteriorTransform that transforms the multi-output posterior into a
-                single-output posterior is required.
+            # posterior_transform: A PosteriorTransform. If using a multi-output model,
+            #     a PosteriorTransform that transforms the multi-output posterior into a
+            #     single-output posterior is required.
             maximize: If True, consider the problem a maximization problem.
             bound: A `2 x d` tensor of lower and upper bound for each column of `X`.
         """
-        super().__init__(model=model, posterior_transform=posterior_transform)
+        # use AcquisitionFunction constructor to avoid check for objective
+        super(AnalyticAcquisitionFunction, self).__init__(model=model)
         self.lmbda = lmbda
         self.maximize = maximize
         self.bound = bound
         self.eps = eps
         self.cost = cost if cost is not None else 1.0
+        self.unknown_cost = unknown_cost
       
         
-    @t_batch_mode_transform(expected_q=1)
+    @t_batch_mode_transform(expected_q=1, assert_output_shape=False)
     def forward(self, X: Tensor) -> Tensor:
         r"""Evaluate Gittins Index on the candidate set X using bisection method.
 
@@ -165,14 +179,30 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             given design points `X`.
         """
         
-        mean, sigma = self._mean_and_sigma(X)
+        if self.unknown_cost:
+            # Handling the unknown cost scenario
+            posterior = self.model.posterior(X)
+            means = posterior.mean  # (b) x 2
+            vars = posterior.variance.clamp_min(1e-6)  # (b) x 2
+            stds = vars.sqrt()
 
-        if callable(self.cost):
-            cost_X = self.cost(X).view(mean.shape)
+            mean_obj = means[..., 0].squeeze(dim=-1)
+            std_obj = stds[..., 0].squeeze(dim=-1)
+
+            mgf = (torch.exp(means[..., 1]) + 0.5 * vars[..., 1]).squeeze(dim=-1)
+
+            gi_value = GittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, mgf)
+
         else:
-            cost_X = torch.ones_like(mean)
+            # Handling the known cost scenario
+            mean, sigma = self._mean_and_sigma(X)
 
-        gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X)
+            if callable(self.cost):
+                cost_X = self.cost(X).view(mean.shape)
+            else:
+                cost_X = torch.ones_like(mean)
+
+            gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X)
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value

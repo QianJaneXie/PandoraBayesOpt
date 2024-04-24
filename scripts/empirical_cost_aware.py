@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from pandora_bayesopt.test_functions.robot_pushing.robot_pushing import robot_pushing_4d, robot_pushing_14d
+from pandora_bayesopt.test_functions.lunar_lander import LunarLanderProblem
 from pandora_bayesopt.test_functions.pest_control import PestControl, pest_control_price
+from pandora_bayesopt.test_functions.robot_pushing.robot_pushing import robot_pushing_4d, robot_pushing_14d
 
 import torch
 from botorch.utils.sampling import draw_sobol_samples
@@ -26,6 +27,12 @@ def run_bayesopt_experiment(config):
     print(config)
 
     problem = config['problem']
+
+    if problem == "LunarLander":
+        dim = 12
+        num_iterations = 200
+        def objective_function(X):
+            return LunarLanderProblem()(X)
 
     if problem == "PestControl":
         dim = 25
@@ -142,14 +149,23 @@ def run_bayesopt_experiment(config):
     policy = config['policy']
     print("policy:", policy)
     
-    Optimizer = BayesianOptimizer(
-        dim=dim, 
-        maximize=maximize, 
-        initial_points=init_x,
-        objective=objective_function, 
-        cost=cost_function,
-        input_standardize=input_standardize
-    )
+    if problem == "LunarLander":
+        Optimizer = BayesianOptimizer(
+            dim=dim, 
+            maximize=maximize, 
+            initial_points=init_x,
+            objective_cost=objective_cost_function, 
+            input_standardize=input_standardize
+        )
+    else:
+        Optimizer = BayesianOptimizer(
+            dim=dim, 
+            maximize=maximize, 
+            initial_points=init_x,
+            objective=objective_function, 
+            cost=cost_function,
+            input_standardize=input_standardize
+        )
     if policy == 'RandomSearch':
         Optimizer.run_until_budget(
             budget=budget, 

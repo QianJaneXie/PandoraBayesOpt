@@ -18,13 +18,13 @@ class ExpectedImprovementWithCost(AnalyticAcquisitionFunction):
         maximize: bool = True,
         cost: Optional[Callable] = None,
         cost_exponent: Union[float, Tensor] = 1.0,
-        unknown_cost: bool = False,
-        objective: Optional[Callable] = None,
+        unknown_cost: bool = False
     ):
-        """
+        r"""Single-outcome/Two-outcome ExpectedImprovementWithCost (analytic).
         Args:
-            model: A fitted two-outcome model, where the first output corresponds
-                to the objective and the second one to the log-cost.
+            model: A fitted single-outcome model or a fitted two-outcome model, 
+                where the first output corresponds to the objective 
+                and the second one to the log-cost.
             best_f: Either a scalar or a `b`-dim Tensor (batch mode) representing
                 the best function value observed so far (assumed noiseless).
             maximize: If True, consider the problem a maximization problem.
@@ -55,11 +55,11 @@ class ExpectedImprovementWithCost(AnalyticAcquisitionFunction):
             pdf_u = torch.exp(standard_normal.log_prob(u))
             cdf_u = standard_normal.cdf(u)
             ei = std_obj * (pdf_u + u * cdf_u)  # (b) x 1
-            eic = torch.exp(-(self.cost_exponent * means[..., 1]) + 0.5 * (torch.square(self.cost_exponent) * vars[..., 1]))
-            ei_puc = ei.mul(eic)  # (b) x 1
+            mgf = torch.exp(-(self.cost_exponent * means[..., 1]) + 0.5 * (torch.square(self.cost_exponent) * vars[..., 1]))
+            ei_puc = ei.mul(mgf)  # (b) x 1
             return ei_puc.squeeze(dim=-1)
         else:
             # Handling the known cost scenario
             EI = ExpectedImprovement(model=self.model, best_f=self.best_f, maximize=self.maximize)
-            eic = EI(X) / torch.pow(self.cost(X).view(EI(X).shape), self.cost_exponent)
-            return eic
+            ei_puc = EI(X) / torch.pow(self.cost(X).view(EI(X).shape), self.cost_exponent)
+            return ei_puc
