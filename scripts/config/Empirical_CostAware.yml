@@ -1,4 +1,4 @@
-name: PestControl_CostAware
+name: Empirical_CostAware
 program: scripts/empirical_cost_aware.py
 method: grid
 parameters:
@@ -25,6 +25,6 @@ parameters:
       # - Gittins_Step_EIpu
       - BudgetedMultiStepLookaheadEI
   budget:
-    value: 8000
+    value: 1200
 
 

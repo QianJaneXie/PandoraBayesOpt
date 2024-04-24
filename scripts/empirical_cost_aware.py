@@ -30,8 +30,7 @@ def run_bayesopt_experiment(config):
 
     if problem == "LunarLander":
         dim = 12
-        num_iterations = 200
-        def objective_function(X):
+        def objective_cost_function(X):
             return LunarLanderProblem()(X)
 
     if problem == "PestControl":
@@ -178,58 +177,59 @@ def run_bayesopt_experiment(config):
         )
     elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class = ExpectedImprovementWithCost
+            budget=budget, 
+            acquisition_function_class=ExpectedImprovementWithCost
         )
     elif policy == 'ExpectedImprovementWithCostCooling':
         Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class = ExpectedImprovementWithCost,
-            cost_cooling = True
+            budget=budget, 
+            acquisition_function_class=ExpectedImprovementWithCost,
+            cost_cooling=True
         )
     elif policy == 'BudgetedMultiStepLookaheadEI':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=BudgetedMultiStepLookaheadEI
-        )
+        pass
+        # Optimizer.run_until_budget(
+        #     budget=budget, 
+        #     acquisition_function_class=BudgetedMultiStepLookaheadEI
+        # )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class = GittinsIndex,
-            lmbda = 0.01
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            lmbda=0.01
         )
     elif policy == 'Gittins_Lambda_001':
         Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class = GittinsIndex,
-            lmbda = 0.001
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            lmbda=0.001
         )
     elif policy == 'Gittins_Lambda_0001':
         Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class = GittinsIndex,
-            lmbda = 0.0001
+            budget=budget, 
+            acquisition_function_class=GittinsIndex,
+            lmbda=0.0001
         )
     elif policy == 'Gittins_Step_Divide2':
         Optimizer.run_until_budget(
-            budget = budget, 
+            budget=budget, 
             acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 2
+            step_divide=True,
+            alpha=2
         )
     elif policy == 'Gittins_Step_Divide5':
         Optimizer.run_until_budget(
-            budget = budget, 
+            budget=budget, 
             acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
+            step_divide=True,
+            alpha=5
         )
     elif policy == 'Gittins_Step_Divide10':
         Optimizer.run_until_budget(
-            budget = budget, 
+            budget=budget, 
             acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
+            step_divide=True,
+            alpha=10
         )
     elif policy == 'Gittins_Step_EIpu':
         Optimizer.run_until_budget(
@@ -246,19 +246,22 @@ def run_bayesopt_experiment(config):
     print("Runtime history:", runtime_history)
     print()
 
-    return (budget, cost_history, best_history, runtime_history)
+    if problem == "LunarLander":
+        return (1, budget, cost_history, best_history, runtime_history)
+    else:
+        return (-1, budget, cost_history, best_history, runtime_history)
 
 wandb.init()
-(budget, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
+(scaled_constant, budget, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, runtime in zip(cost_history, best_history, runtime_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": -best, "run time": runtime})
+    wandb.log({"raw cumulative cost": cost, "raw best observed": scaled_constant*best, "run time": runtime})
 
 interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_best = interp_func_best(interp_cost)
 
 for cost, best in zip(interp_cost, interp_best):
-    wandb.log({"cumulative cost": cost, "best observed": -best})
+    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best})
 
 wandb.finish()

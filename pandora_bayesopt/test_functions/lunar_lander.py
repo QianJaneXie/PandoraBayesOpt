@@ -898,9 +898,9 @@ class LunarLanderProblem(BaseTestProblem):
         reward = torch.tensor(results)[:, 0].view(-1, n_envs) 
         steps = torch.tensor(results)[:, 1].view(-1, n_envs)
         # average over envs
-        reward = reward.mean(1) 
-        steps = steps.mean(1)
-        return reward.to(X), steps.to(X)
+        ave_reward = reward.mean(1) 
+        ave_steps = steps.mean(1)
+        return ave_reward.to(X), ave_steps.to(X)/16
 
 
 if __name__ == "__main__":
