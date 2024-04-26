@@ -14,6 +14,7 @@ import wandb
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
+torch.set_device("cpu")
 
 def run_bayesopt_experiment(config):
     print(config)

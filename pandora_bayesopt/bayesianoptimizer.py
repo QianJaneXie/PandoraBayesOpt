@@ -17,7 +17,7 @@ from .utils import fit_gp_model
 import time
 
 class BayesianOptimizer:
-    DEFAULT_COST = 1.0  # Default cost if not provided
+    DEFAULT_COST = torch.tensor(1.0)  # Default cost if not provided
 
     def __init__(self,
                  dim: int, 
@@ -63,8 +63,10 @@ class BayesianOptimizer:
         self.x = initial_points
         if callable(self.objective):
             self.y = self.objective(initial_points)
-        if callable(self.cost):
-            self.c = self.cost(initial_points)
+            if callable(self.cost):
+                self.c = self.cost(initial_points)
+            else:
+                self.c = self.DEFAULT_COST
         if callable(self.objective_cost):
             self.y, self.c = self.objective_cost(initial_points)
         self.update_best()
@@ -79,18 +81,26 @@ class BayesianOptimizer:
         if acquisition_function_class == "RandomSearch":
 
             new_point = torch.rand(1, self.dim)
-
-            self.current_acq = self.objective(new_point)
         
-        else: 
-            model = fit_gp_model(
-                X=self.x.detach(), 
-                objective_X=self.y.detach(), 
-                cost_X=self.c.detach(), 
-                unknown_cost=self.unknown_cost, 
-                input_standardize=self.input_standardize, 
-                kernel=self.kernel
-            )
+        else:
+            if acquisition_function_class in (ExpectedImprovementWithCost, GittinsIndex, BudgetedMultiStepLookaheadEI):
+                model = fit_gp_model(
+                    X=self.x.detach(), 
+                    objective_X=self.y.detach(), 
+                    cost_X=self.c.detach(), 
+                    unknown_cost=self.unknown_cost, 
+                    input_standardize=self.input_standardize, 
+                    kernel=self.kernel
+                )
+            else:
+                model = fit_gp_model(
+                    X=self.x.detach(), 
+                    objective_X=self.y.detach(), 
+                    cost_X=self.c.detach(), 
+                    unknown_cost=False, 
+                    input_standardize=self.input_standardize, 
+                    kernel=self.kernel
+                )
 
             acqf_args = {'model': model}
         
@@ -102,7 +112,7 @@ class BayesianOptimizer:
                 # Optimize
                 new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
-                self.current_acq = new_point_TS
+                self.current_acq = new_point_TS.item()
 
             else:
                 
@@ -242,16 +252,19 @@ class BayesianOptimizer:
 
                 best_idx = torch.argmax(candidates_acq_vals.view(-1), dim=0)
                 new_point = candidates[best_idx]
-                self.current_acq = candidates_acq_vals[best_idx]
+                self.current_acq = candidates_acq_vals[best_idx].item()
         
         if self.unknown_cost:
             new_value, new_cost = self.objective_cost(new_point.detach())
         else: 
             new_value = self.objective(new_point.detach())
         self.x = torch.cat((self.x, new_point.detach()))
-        self.y = torch.cat((self.y, new_value))
+        self.y = torch.cat((self.y, new_value.detach()))
         self.update_best()
         self.update_cost(new_point)
+
+        if acquisition_function_class == "RandomSearch":
+            self.current_acq = new_value.item()
 
         # Check if lmbda needs to be updated in the next iteration
         if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
@@ -271,12 +284,12 @@ class BayesianOptimizer:
             self.cumulative_cost += new_cost.sum().item()
         else:
             # If self.cost is not a function, just increment cumulative cost by self.cost
-            self.cumulative_cost += self.cost
+            self.cumulative_cost += self.cost.item()
 
         self.cost_history.append(self.cumulative_cost)
 
     def print_iteration_info(self, iteration):
-        print(f"Iteration {iteration}, New point: {self.x[-1].squeeze().detach().numpy()}, New value: {self.y[-1].item()}")
+        print(f"Iteration {iteration}, New point: {self.x[-1].squeeze().detach().numpy()}, New value: {self.y[-1].detach().numpy()}")
         print("Best observed value:", self.best_f)
         print("Current acquisition value:", self.current_acq)
         print("Cumulative cost:", self.cumulative_cost)
