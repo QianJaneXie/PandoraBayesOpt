@@ -23,7 +23,7 @@ class BudgetedMultiStepLookaheadEI(qMultiStepLookahead):
     def __init__(
         self,
         model: Model,
-        cost_function: Callable,
+        unknown_cost: bool,
         budget_plus_cumulative_cost: Union[float, Tensor],
         batch_size: int,
         lookahead_batch_sizes: List[int],
@@ -31,11 +31,12 @@ class BudgetedMultiStepLookaheadEI(qMultiStepLookahead):
         samplers: Optional[List[MCSampler]] = None,
         X_pending: Optional[Tensor] = None,
         collapse_fantasy_base_samples: bool = True,
+        cost_function: Optional[Callable] = None,
     ) -> None:
         r"""Budgeted Multi-Step Expected Improvement.
 
         Args:
-            model: A fitted two-output model, where the first output corresponds to the
+            model: A fitted single-outcome model or a fitted two-output model, where the first output corresponds to the
                 objective, and the second one to the log-cost.
             budget: A value determining the budget constraint.
             batch_size: Batch size of the current step.
@@ -53,6 +54,7 @@ class BudgetedMultiStepLookaheadEI(qMultiStepLookahead):
                 will be applied on fantasy batch dimensions as well, meaning that base
                 samples are the same in all subtrees starting from the same level.
         """
+        self.unknown_cost = unknown_cost
         self.cost_function = cost_function
         self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
         self.batch_size = batch_size
@@ -75,6 +77,7 @@ class BudgetedMultiStepLookaheadEI(qMultiStepLookahead):
             budgeted_ei_argfac(
                 budget_plus_cumulative_cost=self.budget_plus_cumulative_cost,
                 cost_function=self.cost_function,
+                unknown_cost=self.unknown_cost
             )
             for _ in batch_sizes
         ]
@@ -107,21 +110,45 @@ class BudgetedMultiStepLookaheadEI(qMultiStepLookahead):
 class budgeted_ei_argfac(Module):
     r"""Extract the best observed value and reamaining budget from the model."""
 
-    def __init__(self, budget_plus_cumulative_cost: Union[float, Tensor], cost_function: Callable) -> None:
+    def __init__(
+            self,
+            unknown_cost: bool,
+            budget_plus_cumulative_cost: Union[float, Tensor], 
+            cost_function: Optional[Callable] = None, 
+    ) -> None:
         super().__init__()
         self.budget_plus_cumulative_cost = budget_plus_cumulative_cost
         self.cost_function = cost_function
+        self.unknown_cost = unknown_cost
 
     def forward(self, model: Model, X: Tensor) -> Dict[str, Any]:
-        x = model.train_inputs[0]
-        y = model.train_targets
-        y_original_scale = model.outcome_transform.untransform(y)[0]
-        obj_vals = y_original_scale
-        costs = self.cost_function(x)
-        current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=False)
-        params = {
-            "best_f": obj_vals.max(dim=-1, keepdim=False).values,
-            "budget": current_budget,
-            "cost_function": self.cost_function,
-        }
+        if self.unknown_cost:
+            y = torch.transpose(model.train_targets, -2, -1)
+            y_original_scale = model.outcome_transform.untransform(y)[0]
+            obj_vals = y_original_scale[..., 0]
+            log_costs = y_original_scale[..., 1]
+            costs = torch.exp(log_costs)
+            current_budget = self.budget_plus_cumulative_cost - costs.sum(
+                dim=-1, keepdim=True
+            )
+
+            params = {
+                "best_f": obj_vals.max(dim=-1, keepdim=True).values,
+                "budget": current_budget,
+                "cost_function": self.cost_function,
+                "unknown_cost": self.unknown_cost
+            }
+        else:
+            x = model.train_inputs[0]
+            y = model.train_targets
+            y_original_scale = model.outcome_transform.untransform(y)[0]
+            obj_vals = y_original_scale
+            costs = self.cost_function(x)
+            current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=False)
+            params = {
+                "best_f": obj_vals.max(dim=-1, keepdim=False).values,
+                "budget": current_budget,
+                "cost_function": self.cost_function,
+                "unknown_cost": self.unknown_cost
+            }
         return params
