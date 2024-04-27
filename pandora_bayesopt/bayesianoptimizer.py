@@ -268,7 +268,7 @@ class BayesianOptimizer:
 
         # Check if lmbda needs to be updated in the next iteration
         if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
-            if (self.maximize and self.current_acq.item() < self.best_f) or (not self.maximize and -self.current_acq.item() > self.best_f):
+            if (self.maximize and self.current_acq < self.best_f) or (not self.maximize and -self.current_acq > self.best_f):
                 self.need_lmbda_update = True
 
 

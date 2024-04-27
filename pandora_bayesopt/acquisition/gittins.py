@@ -134,6 +134,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         self,
         model: Model,
         lmbda: float,
+        posterior_transform: Optional[PosteriorTransform] = None,
         maximize: bool = True,
         bound: torch.Tensor = torch.tensor([[-1.0], [1.0]], dtype=torch.float64),
         eps: float = 1e-6,
@@ -149,15 +150,16 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             lmbda: A scalar representing the Lagrangian multiplier of the budget constraint/cost function.
             cost: Either a scalar or a `b`-dim Tensor (batch mode) representing
                 the cost function.
-            # posterior_transform: A PosteriorTransform. If using a multi-output model,
-            #     a PosteriorTransform that transforms the multi-output posterior into a
-            #     single-output posterior is required.
+            posterior_transform: A PosteriorTransform. If using a multi-output model,
+                a PosteriorTransform that transforms the multi-output posterior into a
+                single-output posterior is required.
             maximize: If True, consider the problem a maximization problem.
             bound: A `2 x d` tensor of lower and upper bound for each column of `X`.
         """
         # use AcquisitionFunction constructor to avoid check for objective
         super(AnalyticAcquisitionFunction, self).__init__(model=model)
         self.lmbda = lmbda
+        self.posterior_transform = posterior_transform
         self.maximize = maximize
         self.bound = bound
         self.eps = eps
