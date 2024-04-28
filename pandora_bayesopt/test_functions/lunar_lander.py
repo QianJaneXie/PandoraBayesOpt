@@ -1,5 +1,5 @@
 # Uniform-cost and cost-aware version of Lunar Lander problem 
-# Based on GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/lunar_lander.py
+# Reference: GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/lunar_lander.py
 __credits__ = ["Andrea PIERRÉ"]
 
 import math
