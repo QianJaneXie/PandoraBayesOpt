@@ -80,7 +80,7 @@ def run_bayesopt_experiment(config):
         
     if problem == "RobotPushing14D":
         dim = 14
-        num_iterations = 400
+        num_iterations = 200
         target_location = torch.tensor([-4.4185, -4.3709])
         target_location2 = torch.tensor([-3.7641, -4.4742])
         def unnorm_X(X: torch.Tensor) -> torch.Tensor:
@@ -114,7 +114,7 @@ def run_bayesopt_experiment(config):
             for x in X_unnorm:
                 # Set the seed based on X to ensure consistent randomness
                 np.random.seed(0)
-                object_location, object_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
+                object_location, object_location2, robot_location, robot_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
                 objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
             np.random.seed()  # Reset the seed
             return torch.tensor(objective_X)
@@ -223,16 +223,13 @@ def run_bayesopt_experiment(config):
     print("Runtime history:", runtime_history)
     print()
 
-    if problem == "LunarLander":
-        return 1, cost_history, best_history, runtime_history
-    else:
-        return -1, cost_history, best_history, runtime_history
+    return cost_history, best_history, runtime_history
 
 wandb.init(resume=True)
 
-scaled_constant, cost_history, best_history, runtime_history = run_bayesopt_experiment(wandb.config)
+cost_history, best_history, runtime_history = run_bayesopt_experiment(wandb.config)
 
 for cost, best, runtime in zip(cost_history, best_history, runtime_history):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "run time": runtime})
+    wandb.log({"cumulative cost": cost, "best observed": best, "run time": runtime})
 
 wandb.finish()

@@ -114,24 +114,49 @@ def run_bayesopt_experiment(config):
 
             return X_unnorm
 
-        def objective_function(X: torch.Tensor) -> torch.Tensor:
-            X_unnorm = unnorm_X(X)
-            objective_X = []
-            for x in X_unnorm:
-                # Set the seed based on X to ensure consistent randomness
-                np.random.seed(0)
-                object_location, object_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
-                objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
-            np.random.seed()  # Reset the seed
-            return torch.tensor(objective_X)
+        if cost_function_type in ("mean", "max"):
+            def objective_function(X: torch.Tensor) -> torch.Tensor:
+                X_unnorm = unnorm_X(X)
+                objective_X = []
+                for x in X_unnorm:
+                    # Set the seed based on X to ensure consistent randomness
+                    np.random.seed(0)
+                    object_location, object_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
+                    objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
+                np.random.seed()  # Reset the seed
+                return torch.tensor(objective_X)
         
-        def cost_function(X: torch.Tensor) -> torch.Tensor:
-            X_unnorm = unnorm_X(X)
-
-            if cost_function_type == "mean":
+        if cost_function_type == "mean":
+            def cost_function(X: torch.Tensor) -> torch.Tensor:
+                X_unnorm = unnorm_X(X)
                 return (X_unnorm[:, 4] + X_unnorm[:, 10]) / 2
-            if cost_function_type == "max":
+
+        if cost_function_type == "max":
+            def cost_function(X: torch.Tensor) -> torch.Tensor:
+                X_unnorm = unnorm_X(X)
                 return torch.max(X_unnorm[:, 4], X_unnorm[:, 10])
+            
+        if cost_function_type == 'unknown':
+            def objective_cost_function(X: torch.Tensor) -> torch.Tensor:
+                X_unnorm = unnorm_X(X)
+                objective_X = []
+                cost_X = []
+                
+                for x in X_unnorm:
+                    np.random.seed(0)
+                    object_location, object_location2, robot_location, robot_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
+                    objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
+                    moving_distance = torch.dist(x[:2], robot_location)+torch.dist(x[6:8], robot_location2)
+                    if moving_distance == 0:
+                        moving_distance = moving_distance + 0.1
+                    
+                    cost_X.append(moving_distance)
+
+                np.random.seed()  # Reset the seed
+                
+                objective_X = torch.tensor(objective_X)
+                cost_X = torch.tensor(cost_X)
+                return objective_X, cost_X
         
 
     seed = config['seed']
@@ -148,7 +173,7 @@ def run_bayesopt_experiment(config):
     policy = config['policy']
     print("policy:", policy)
     
-    if problem == "LunarLander":
+    if problem == "LunarLander" or (problem == "RobotPushing14D" and cost_function_type == "unknown"):
         Optimizer = BayesianOptimizer(
             dim=dim, 
             maximize=maximize, 
@@ -186,8 +211,7 @@ def run_bayesopt_experiment(config):
             acquisition_function_class=ExpectedImprovementWithCost,
             cost_cooling=True
         )
-    elif policy == 'BudgetedMultiStepLookaheadEI':
-        pass
+    # elif policy == 'BudgetedMultiStepLookaheadEI':
         # Optimizer.run_until_budget(
         #     budget=budget, 
         #     acquisition_function_class=BudgetedMultiStepLookaheadEI
@@ -246,22 +270,19 @@ def run_bayesopt_experiment(config):
     print("Runtime history:", runtime_history)
     print()
 
-    if problem == "LunarLander":
-        return (1, budget, cost_history, best_history, runtime_history)
-    else:
-        return (-1, budget, cost_history, best_history, runtime_history)
+    return budget, cost_history, best_history, runtime_history
 
 wandb.init()
-(scaled_constant, budget, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
+(budget, cost_history, best_history, runtime_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, runtime in zip(cost_history, best_history, runtime_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": scaled_constant*best, "run time": runtime})
+    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "run time": runtime})
 
 interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
 interp_best = interp_func_best(interp_cost)
 
 for cost, best in zip(interp_cost, interp_best):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best})
+    wandb.log({"cumulative cost": cost, "best observed": best})
 
 wandb.finish()
