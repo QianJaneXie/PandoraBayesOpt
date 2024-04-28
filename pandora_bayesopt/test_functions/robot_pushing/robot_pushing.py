@@ -2,7 +2,6 @@
 # Reference: GitHub repo by Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO/blob/740cbf8397ac68bcdb1a196f2b56381adb1be1b4/experiments/robot_pushing_src/robot_pushing_3d.py
 # Copyright (c) 2017 Zi Wang
 from .push_world import *
-import sys
 
 
 def robot_pushing_3d(
@@ -63,7 +62,7 @@ def robot_pushing_14d(
     simu_steps = int(10 * duration)
     simu_steps2 = int(10 * duration2)
     # set it to False if no gui needed
-    world = b2WorldInterface(True)
+    world = b2WorldInterface(False)
     oshape, osize, ofriction, odensity, bfriction, hand_shape, hand_size  = 'circle', 1, 0.01, 0.05, 0.01, 'rectangle', (1,0.3) #'circle', 0.3#
     #thing,base = make_thing(500, 500, world, oshape, osize, ofriction, odensity, bfriction, (0,0))
     base = make_base(500, 500, world)
