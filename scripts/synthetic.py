@@ -4,7 +4,7 @@
 import torch
 from botorch.test_functions.synthetic import Ackley, Rosenbrock, Levy
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.acquisition import ExpectedImprovement
+from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch

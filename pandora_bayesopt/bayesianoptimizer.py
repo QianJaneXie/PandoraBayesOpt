@@ -14,6 +14,8 @@ from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.optim import optimize_acqf
 from copy import copy
 from .utils import fit_gp_model
+import numpy as np
+import math
 import time
 
 class BayesianOptimizer:
@@ -122,13 +124,16 @@ class BayesianOptimizer:
                     paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
                     
                     # Optimize
-                    new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
+                    optimal_input, _ = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
-                    acqf_args['optimal_inputs'] = new_point
+                    acqf_args['optimal_inputs'] = optimal_input
                     acqf_args['maximize'] = self.maximize
 
                 elif acquisition_function_class == UpperConfidenceBound:
-                    acqf_args['beta'] = acqf_kwargs['beta']
+                    if acqf_kwargs.get('heuristic') == True:
+                        acqf_args['beta'] = 2*np.log(self.dim*((self.cumulative_cost+1)**2)*(math.pi**2)/(6*0.1))
+                    else:
+                        acqf_args['beta'] = acqf_kwargs['beta']
                     acqf_args['maximize'] = self.maximize
                 
                 elif acquisition_function_class == ExpectedImprovement:
