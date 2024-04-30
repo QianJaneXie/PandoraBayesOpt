@@ -154,6 +154,12 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class="ThompsonSampling"
         )
+    elif policy == 'UpperConfidenceBound':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=UpperConfidenceBound,
+            heuristic=True
+        )
     elif policy == 'PredictiveEntropySearch':
         Optimizer.run(
             num_iterations=num_iterations, 
