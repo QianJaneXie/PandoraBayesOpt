@@ -131,7 +131,7 @@ class BayesianOptimizer:
 
                 elif acquisition_function_class == UpperConfidenceBound:
                     if acqf_kwargs.get('heuristic') == True:
-                        acqf_args['beta'] = 2*np.log(self.dim*((self.cumulative_cost+1)**2)*(math.pi**2)/(6*0.1))
+                        acqf_args['beta'] = 2*np.log(self.dim*((self.cumulative_cost+1)**2)*(math.pi**2)/(6*0.1))/5
                     else:
                         acqf_args['beta'] = acqf_kwargs['beta']
                     acqf_args['maximize'] = self.maximize
