@@ -20,7 +20,7 @@ def fit_gp_model(
         unknown_cost: bool = False, 
         kernel: Optional[torch.nn.Module] = None, 
         Yvar: Optional[torch.Tensor] = None, 
-        input_standardize: bool =False, 
+        input_standardize: bool = False, 
         noise_level: float = 1e-4
     ):
     # Ensure X is a 2D tensor [num_data, num_features]
@@ -125,9 +125,9 @@ def create_objective_model(dim, nu, lengthscale, outputscale=1.0, num_rff_featur
     """
     # Set up the Matern kernel
     base_kernel = MaternKernel(nu=nu).double()
-    base_kernel.lengthscale = torch.tensor([[lengthscale]], dtype=torch.float64)
+    base_kernel.lengthscale = torch.tensor([[lengthscale]])
     scale_kernel = ScaleKernel(base_kernel).double()
-    scale_kernel.outputscale = torch.tensor([[outputscale]], dtype=torch.float64)
+    scale_kernel.outputscale = torch.tensor([[outputscale]])
     # Random Fourier Features
     rff = RandomFourierFeatures(
         kernel=scale_kernel,
@@ -135,7 +135,7 @@ def create_objective_model(dim, nu, lengthscale, outputscale=1.0, num_rff_featur
         num_rff_features=num_rff_features
     )
     # Generate weights for the Random Fourier Features
-    weights = torch.randn(num_rff_features, dtype=torch.float64)
+    weights = torch.randn(num_rff_features)
     objective_model = get_deterministic_model(weights=[weights], bases=[rff])
     return objective_model
 
