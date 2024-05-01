@@ -146,9 +146,7 @@ def run_bayesopt_experiment(config):
                     np.random.seed(0)
                     object_location, object_location2, robot_location, robot_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
                     objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
-                    moving_distance = torch.dist(x[:2], robot_location)+torch.dist(x[6:8], robot_location2)
-                    if moving_distance == 0:
-                        moving_distance = moving_distance + 0.1
+                    moving_distance = torch.dist(x[:2], robot_location)+torch.dist(x[6:8], robot_location2)+0.1
                     
                     cost_X.append(moving_distance)
 
