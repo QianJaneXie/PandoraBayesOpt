@@ -35,7 +35,8 @@ def run_bayesopt_experiment(config):
         dim = 12
         num_iterations = 200
         def objective_function(X):
-            return LunarLanderProblem()(X)
+            objective_X, cost_X = LunarLanderProblem()(X)
+            return objective_X
         
     if problem == "PestControl":
         dim = 25
