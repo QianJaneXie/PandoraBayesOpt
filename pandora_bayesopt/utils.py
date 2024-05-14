@@ -56,61 +56,6 @@ def fit_gp_model(
     return model
 
 
-class ObjectiveAcquisitionFunction(AcquisitionFunction):
-    def __init__(self, model, objective, maximize=True):
-        super().__init__(model)
-        self.objective = objective
-        self.maximize = maximize
-
-    def forward(self, X):
-        if self.maximize:
-            return self.objective(X)
-        else:
-            return -self.objective(X)
-
-
-def find_global_optimum(objective, dim, maximize, raw_samples=None, method='L-BFGS-B'):
-    """
-    Find the global optimum using multi-start optimization.
-    Parameters:
-    - objective (function): The objective function to optimize.
-    - dim (int): The number of dimensions
-    - maximize (bool): If True, maximizes the objective; otherwise, minimizes.
-    - raw_samples (int): Number of raw samples for the optimization.
-    - method: Optimization method; e.g., 'L-BFGS-B'
-    Returns:
-    - float: The global optimum found.
-    """
-
-    # Define the dummy model
-    model = None
-    
-    # If raw_samples is None, set a default value based on the dimension
-    if raw_samples is None:
-        raw_samples = 10 * dim
-
-    # Initialize the acquisition function
-    obj_acqf = ObjectiveAcquisitionFunction(model=model, objective=objective, maximize=maximize)
-
-    # Define bounds based on the dimension
-    bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
-
-    # Optimize the acquisition function
-    global_optimum_point, _ = optimize_acqf(
-        acq_function=obj_acqf,
-        bounds=bounds,
-        q=1,
-        num_restarts=1,
-        raw_samples=1024*dim,
-        options={'method': method},
-    )
-
-    # Evaluate the objective function at the optimum point to get the true value
-    global_optimum_value = objective(global_optimum_point).item()
-
-    return global_optimum_point.squeeze(-1).squeeze(-1), global_optimum_value
-
-
 def create_objective_model(dim, nu, lengthscale, outputscale=1.0, num_rff_features=1280):
     """
     Create and return the objective model for sampling from a Matern kernel.

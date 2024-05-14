@@ -3,11 +3,11 @@ program: scripts/variable_amplitude.py
 method: grid
 parameters:
   kernel:
-    values: ["matern32", "matern52"]
+    values: ["Matern52"]
   dim:
     values: [1]
   lengthscale:
-    values: [0.01]
+    values: [0.01,0.001,0.0001]
   amplitude:
     values: [1.0]
   num_rff_features:
@@ -18,16 +18,25 @@ parameters:
     value: False
   policy:
     values:
-      - ExpectedImprovement
-      - ExpectedImprovementWithCost_Uniform
-      - ExpectedImprovementWithCost_Cooling
+      - ExpectedImprovementWithoutCost
+      - ExpectedImprovementPerUnitCost
       # - BudgetedMultiStepExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
-      - Gittins_Step_Divide2
-      - Gittins_Step_Divide5
-      - Gittins_Step_Divide10
-      - Gittins_Step_EIpu
+      # - Gittins_Step_Divide2
+      # - Gittins_Step_Divide5
+      # - Gittins_Step_Divide10
+      # - Gittins_Step_EIpu
   problem:
     values: ['hard_for_eipc', 'hard_for_ei']
+  cost_function_epsilon:
+    value: 0.1
+  cost_function_delta:
+    value: 9.0
+  amplitude_function_width:
+    value: 0.002
+  cost_function_width:
+    value: 0.002
+  budget:
+    value: 40.0

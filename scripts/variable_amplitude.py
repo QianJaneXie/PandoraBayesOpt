@@ -28,22 +28,22 @@ def run_bayesopt_experiment(config):
     print(config)
 
     dim = config['dim']
-    if config['kernel'] == 'matern12':
+    if config['kernel'] == 'Matern12':
         nu = 0.5
-    elif config['kernel'] == 'matern32':
+    elif config['kernel'] == 'Matern32':
         nu = 1.5
-    elif config['kernel'] == 'matern52':
+    elif config['kernel'] == 'Matern52':
         nu = 2.5  
     lengthscale = config['lengthscale']
     outputscale = config['amplitude']
     num_rff_features = config['num_rff_features']
     problem = config['problem']
     
-    cost_function_epsilon = 0.1
-    cost_function_delta = 1.0
-    amplitude_function_width = 0.001
-    cost_function_width = 0.001
-    budget = 4.0
+    cost_function_epsilon = config['cost_function_epsilon']
+    cost_function_delta = config['cost_function_delta']
+    amplitude_function_width = config['amplitude_function_width']
+    cost_function_width = config['cost_function_width']
+    budget = config['budget']
 
     seed = config['seed']
     torch.manual_seed(seed)
@@ -51,6 +51,9 @@ def run_bayesopt_experiment(config):
     policy = config['policy']
     print("policy:", policy)
     maximize = True
+
+    amplitude_function_sigma = amplitude_function_width / (2*np.sqrt(-2 * np.log(cost_function_epsilon**2)))
+    cost_function_sigma = cost_function_width / (2*np.sqrt(-2 * np.log(cost_function_epsilon**2)))
 
     if problem == 'hard_for_eipc':
 
@@ -61,15 +64,16 @@ def run_bayesopt_experiment(config):
         def amplitude_function(x):
             center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
             dist_squared = squared_euclidean_distance(x, center)
-            amplitude = torch.exp(-dist_squared / (2 * amplitude_function_width**2)) * (1 - cost_function_epsilon**2) + cost_function_epsilon**2
+
+            amplitude = torch.exp(-dist_squared / (2 * amplitude_function_sigma**2)) * (1 - cost_function_epsilon**2) + cost_function_epsilon**2
             return amplitude
 
         def cost_function(x):
             center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
-            width = cost_function_width
             peak_height = 1 + cost_function_delta - cost_function_epsilon
             dist_squared = squared_euclidean_distance(x, center)
-            cost = torch.exp(-dist_squared / (2 * width**2)) * peak_height + cost_function_epsilon
+
+            cost = torch.exp(-dist_squared / (2 * cost_function_sigma**2)) * peak_height + cost_function_epsilon
             return cost
 
     if problem == 'hard_for_ei':
@@ -81,15 +85,14 @@ def run_bayesopt_experiment(config):
         def amplitude_function(x):
             center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
             dist_squared = squared_euclidean_distance(x, center)
-            amplitude = torch.exp(-dist_squared / (2 * amplitude_function_width**2)) * (1 - (1-cost_function_epsilon)**2) + (1-cost_function_epsilon)**2
+            amplitude = torch.exp(-dist_squared / (2 * amplitude_function_sigma**2)) * (1 - (1-cost_function_epsilon)**2) + (1-cost_function_epsilon)**2
             return amplitude
 
         def cost_function(x):
             center = torch.full_like(x, 0.5)  # Center at [0.5, 0.5, ...]
-            width = cost_function_width
             peak_height = 1 + cost_function_delta - cost_function_epsilon
             dist_squared = squared_euclidean_distance(x, center)
-            cost = torch.exp(-dist_squared / (2 * width**2)) * peak_height + cost_function_epsilon
+            cost = torch.exp(-dist_squared / (2 * cost_function_sigma**2)) * peak_height + cost_function_epsilon
             return cost
     
     # Create the objective function
@@ -103,11 +106,13 @@ def run_bayesopt_experiment(config):
     def objective_function(x):
         return matern_sample(x) * amplitude_function(x)
 
-    # Find the global optimum
-    global_optimum_point, global_optimum_value = find_global_optimum(objective=objective_function, dim=dim, maximize=maximize)
-    print("global_optimum", global_optimum_point, global_optimum_value)
+    # Find the global optimum using grid search
+    grid_points = torch.linspace(0, 1, 1+int(10/lengthscale))
+    grid_values = objective_function(grid_points.view(-1,1))
+    global_optimum_value = torch.max(grid_values)
+    print("global_optimum", global_optimum_value)
 
-    test_x = torch.linspace(0, 1, 1001, dtype=torch.float64, device=device)
+    test_x = torch.linspace(0, 1, 1001)
     test_pts = test_x.cpu().numpy()
     obj_val = objective_function(test_x.view(-1,1)).numpy()
     cost_val = cost_function(test_x.view(-1,1)).numpy()
@@ -129,21 +134,15 @@ def run_bayesopt_experiment(config):
         cost=cost_function,
         input_standardize=input_standardize
     )
-    if policy == 'ExpectedImprovement':
+    if policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class=ExpectedImprovement
         )
-    elif policy == 'ExpectedImprovementWithCost_Uniform':
+    elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost
-        )
-    elif policy == 'ExpectedImprovementWithCost_Cooling':
-        Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class = ExpectedImprovementWithCost,
-            cost_cooling = True
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
@@ -199,15 +198,15 @@ def run_bayesopt_experiment(config):
     print("Regret history:", regret_history)
     print()
 
-    return (budget, test_pts, obj_val, cost_val, global_optimum_point, global_optimum_value, cost_history, best_history, regret_history)
+    return (budget, test_pts, obj_val, cost_val, global_optimum_value, cost_history, best_history, regret_history)
 
 wandb.init()
-(budget, test_pts, obj_val, cost_val, global_optimum_point, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, test_pts, obj_val, cost_val, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for x, y, c in zip(test_pts, obj_val, cost_val):
     wandb.log({"x": x, "f(x)": y, "c(x)":c})
 
-wandb.log({"global optimum point": global_optimum_point, "global optimum value": global_optimum_value})
+wandb.log({"global optimum value": global_optimum_value})
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
     wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw lg(regret)":np.log10(regret)})
