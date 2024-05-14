@@ -21,7 +21,7 @@ parameters:
       - RandomSearch
       - ExpectedImprovement
       - ThompsonSampling
-      # - UpperConfidenceBound
+      - UpperConfidenceBound
       # - PredictiveEntropySearch
       - KnowledgeGradient
       - Gittins_Lambda_01
