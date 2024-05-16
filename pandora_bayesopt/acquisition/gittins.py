@@ -27,7 +27,8 @@ class GittinsIndexFunction(Function):
         maximize: bool, 
         bound: Tensor, 
         eps: float, 
-        cost_X: Union[float, Tensor]
+        cost_X: Union[float, Tensor],
+        bisection_early_stopping: bool = False,
     ):
 
         def cost_adjusted_expected_improvement(best_f):
@@ -51,7 +52,6 @@ class GittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
-        # while torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) >= eps:
         for _ in range(100):
             sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
             if maximize:
@@ -61,6 +61,8 @@ class GittinsIndexFunction(Function):
                 l = torch.where(sgn_m <= 0, m, l)
                 h = torch.where(sgn_m >= 0, m, h)
             m = (h + l) / 2
+            if bisection_early_stopping and torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) <= eps:
+                break
 
         # Save u for backward computation
         u = _scaled_improvement(mean, sigma, m, maximize)
@@ -86,14 +88,14 @@ class GittinsIndexFunction(Function):
 
                 
         # Gradient of mean function with respect to x
-        dmean_dX = grad(outputs=mean, inputs=X, grad_outputs=torch.ones_like(mean), retain_graph=True, allow_unused=True)[0].clone()
+        dmean_dX = grad(outputs=mean, inputs=X, grad_outputs=torch.ones_like(mean), retain_graph=True, allow_unused=True)[0]
 
         # Gradient of the std function with respect to x
-        dsigma_dX = grad(outputs=sigma, inputs=X, grad_outputs=torch.ones_like(sigma), retain_graph=True, allow_unused=True)[0].clone()
+        dsigma_dX = grad(outputs=sigma, inputs=X, grad_outputs=torch.ones_like(sigma), retain_graph=True, allow_unused=True)[0]
 
         if cost_X.requires_grad:
             # Compute gradient only if cost_X is not a scalar
-            dcost_dX = grad(outputs=cost_X, inputs=X, grad_outputs=torch.ones_like(cost_X), retain_graph=True, allow_unused=True)[0].clone()
+            dcost_dX = grad(outputs=cost_X, inputs=X, grad_outputs=torch.ones_like(cost_X), retain_graph=True, allow_unused=True)[0]
         else:
             # If cost_X does not require grad, set its gradient to zero
             dcost_dX = torch.zeros_like(X)
@@ -108,7 +110,7 @@ class GittinsIndexFunction(Function):
         else:
             grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
 
-        return grad_X, None, None, None, None, None, None, None
+        return grad_X, None, None, None, None, None, None, None, None
 
 class GittinsIndex(AnalyticAcquisitionFunction):
     r"""Single-outcome Gittins Index (analytic).
@@ -137,9 +139,10 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         posterior_transform: Optional[PosteriorTransform] = None,
         maximize: bool = True,
         bound: torch.Tensor = torch.tensor([[-1.0], [1.0]], dtype=torch.float64),
-        eps: float = 1e-6,
+        eps: float = 1e-4,
         cost: Optional[Callable] = None,
-        unknown_cost: bool = False
+        unknown_cost: bool = False,
+        bisection_early_stopping: bool = False
     ):
         r"""Single-outcome/Two-outcome Gittins Index (analytic).
         
@@ -165,6 +168,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         self.eps = eps
         self.cost = cost if cost is not None else 1.0
         self.unknown_cost = unknown_cost
+        self.bisection_early_stopping = bisection_early_stopping
       
         
     @t_batch_mode_transform(expected_q=1, assert_output_shape=False)
@@ -193,7 +197,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
 
             mgf = (torch.exp(means[..., 1]) + 0.5 * vars[..., 1]).squeeze(dim=-1)
 
-            gi_value = GittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, mgf)
+            gi_value = GittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, mgf, self.bisection_early_stopping)
 
         else:
             # Handling the known cost scenario
@@ -204,7 +208,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             else:
                 cost_X = torch.ones_like(mean)
 
-            gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X)
+            gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X, self.bisection_early_stopping)
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value
