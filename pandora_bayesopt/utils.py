@@ -6,6 +6,8 @@ from botorch.models.transforms.outcome import Standardize
 from botorch.fit import fit_gpytorch_model
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
+from gpytorch.likelihoods.gaussian_likelihood import GaussianLikelihood
+from gpytorch.constraints.constraints import Interval
 
 from botorch.acquisition import AcquisitionFunction
 from botorch.optim import optimize_acqf
@@ -20,8 +22,9 @@ def fit_gp_model(
         unknown_cost: bool = False, 
         kernel: Optional[torch.nn.Module] = None, 
         Yvar: Optional[torch.Tensor] = None, 
-        input_standardize: bool = False, 
-        noise_level: float = 1e-4
+        noise_level: float = 1e-4,
+        gaussian_likelihood: bool = False,
+        input_standardize: bool = False,
     ):
     # Ensure X is a 2D tensor [num_data, num_features]
     if X.ndim == 1:
@@ -38,8 +41,21 @@ def fit_gp_model(
 
     Y = torch.cat((objective_X, log_cost_X), dim=-1) if unknown_cost else objective_X
         
-    if Yvar is None:
-        Yvar = torch.ones(len(Y)) * noise_level
+    if gaussian_likelihood:
+        _, aug_batch_shape = SingleTaskGP.get_batch_dimensions(
+                train_X=X,
+                train_Y=Y,
+            )
+        likelihood = GaussianLikelihood(
+                batch_shape=aug_batch_shape,
+                noise_constraint=Interval(lower_bound=noise_level, upper_bound=10*noise_level),
+            )
+
+    else:
+        if Yvar is None:
+            Yvar = torch.ones(Y.shape) * noise_level
+        
+        likelihood = FixedNoiseGaussianLikelihood(noise=Yvar)
 
     # Outcome transform
     if input_standardize == True:
@@ -47,7 +63,7 @@ def fit_gp_model(
     else:
         outcome_transform = None
    
-    model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = FixedNoiseGaussianLikelihood(noise=Yvar), covar_module=kernel, outcome_transform=outcome_transform)
+    model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = likelihood, covar_module=kernel, outcome_transform=outcome_transform)
 
     if input_standardize == True:
         model.outcome_transform.eval()

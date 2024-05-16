@@ -82,7 +82,12 @@ class BayesianOptimizer:
         is_ms = False
         is_ts = False
         is_qs = False
-        
+
+        if acquisition_function_class == BudgetedMultiStepLookaheadEI:
+            gaussian_likelihood = True
+        else:
+            gaussian_likelihood = False
+
         if acquisition_function_class == "RandomSearch":
             new_point = torch.rand(1, self.dim)
         
@@ -92,8 +97,9 @@ class BayesianOptimizer:
                     X=self.x.detach(), 
                     objective_X=self.y.detach(), 
                     cost_X=self.c.detach(), 
-                    unknown_cost=self.unknown_cost, 
-                    input_standardize=self.input_standardize, 
+                    unknown_cost=self.unknown_cost,  
+                    gaussian_likelihood=gaussian_likelihood,
+                    input_standardize=self.input_standardize,
                     kernel=self.kernel
                 )
             else:
@@ -101,8 +107,9 @@ class BayesianOptimizer:
                     X=self.x.detach(), 
                     objective_X=self.y.detach(), 
                     cost_X=self.c.detach(), 
-                    unknown_cost=False, 
-                    input_standardize=self.input_standardize, 
+                    unknown_cost=False,  
+                    gaussian_likelihood=gaussian_likelihood,
+                    input_standardize=self.input_standardize,
                     kernel=self.kernel
                 )
 
