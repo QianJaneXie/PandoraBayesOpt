@@ -37,12 +37,12 @@ def run_bayesopt_experiment(config):
     budget = config['budget_to_dimension_ratio']*dim
     maximize = True
     c_min = config['cost_min']
-    scale_factor = config['cost_function_scale_factor']
+    cost_scale_factor = config['cost_function_scale_factor']
 
     # Create the cost function
     if config["cost_function_type"] == "mean":
         def cost_function(x):
-            return scale_factor*(c_min+x.mean(dim=-1))
+            return cost_scale_factor*(c_min+x.mean(dim=-1))
     if config["cost_function_type"] == "periodic":
         a = torch.tensor([1.1969])
         b = torch.tensor([1.4694])
@@ -51,9 +51,9 @@ def run_bayesopt_experiment(config):
 
     if problem == 'Ackley':
         ackley_function = Ackley(dim=dim)
-        scaled_constant = -1
+        objective_scale_factor = -1
         def objective_function(X):
-            return ackley_function(2*X-1)/scaled_constant
+            return ackley_function(2*X-1)/objective_scale_factor
         global_optimum_value = 0
 
         if config["cost_function_type"] == "periodic":
@@ -66,9 +66,9 @@ def run_bayesopt_experiment(config):
     # if problem == 'DropWave_2D':
     #     dim = 2
     #     dropwave_function = DropWave()
-    #     scaled_constant = -1
+    #     objective_scale_factor = -1
     #     def objective_function(X):
-    #         return dropwave_function(10.24*X-5.12)/scaled_constant
+    #         return dropwave_function(10.24*X-5.12)/objective_scale_factor
     #     global_optimum_value = -1.0
 
     #     if config["cost_function_type"] == "periodic":
@@ -81,9 +81,9 @@ def run_bayesopt_experiment(config):
     # if problem == 'Shekel5_4D':
     #     dim = 4
     #     shekel_function = Shekel(m=5)
-    #     scaled_constant = -2
+    #     objective_scale_factor = -2
     #     def objective_function(X):
-    #         return shekel_function(10*X)/scaled_constant
+    #         return shekel_function(10*X)/objective_scale_factor
     #     global_optimum_value = -10.1532
 
     #     if config["cost_function_type"] == "periodic":
@@ -95,9 +95,9 @@ def run_bayesopt_experiment(config):
 
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
-        scaled_constant = -1000
+        objective_scale_factor = -1000
         def objective_function(X):
-            return rosenbrock_function(15*X-5)/scaled_constant
+            return rosenbrock_function(15*X-5)/objective_scale_factor
         global_optimum_value = 0
 
         if config["cost_function_type"] == "periodic":
@@ -109,9 +109,9 @@ def run_bayesopt_experiment(config):
 
     if problem == 'Levy':
         levy_function = Levy(dim=dim)
-        scaled_constant = -100
+        objective_scale_factor = -100
         def objective_function(X):
-            return levy_function(20*X-10)/scaled_constant
+            return levy_function(20*X-10)/objective_scale_factor
         global_optimum_value = 0
         
         if config["cost_function_type"] == "periodic":
@@ -209,20 +209,20 @@ def run_bayesopt_experiment(config):
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    regret_history = Optimizer.get_regret_history(global_optimum_value/scaled_constant)
+    regret_history = Optimizer.get_regret_history(global_optimum_value/objective_scale_factor)
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
     print("Regret history:", regret_history)
     print()
 
-    return (budget, scaled_constant, cost_history, best_history, regret_history)
+    return (budget, objective_scale_factor, cost_history, best_history, regret_history)
 
 wandb.init()
-(budget, scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, objective_scale_factor, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": scaled_constant*best, "raw regret": -scaled_constant*regret, "raw log(regret)":np.log10(-scaled_constant)+np.log10(regret)})
+    wandb.log({"raw cumulative cost": cost, "raw best observed": objective_scale_factor*best, "raw regret": -objective_scale_factor*regret, "raw log(regret)":np.log10(-objective_scale_factor)+np.log10(regret)})
 
 interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
@@ -233,6 +233,6 @@ interp_func_log_regret = interp1d(cost_history, list(np.log10(regret_history)), 
 interp_log_regret = interp_func_log_regret(interp_cost)
 
 for cost, best, regret, log_regret in zip(interp_cost, interp_best, interp_regret, interp_log_regret):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": -scaled_constant*regret, "lg(regret)": np.log10(-scaled_constant)+log_regret})
+    wandb.log({"cumulative cost": cost, "best observed": objective_scale_factor*best, "regret": -objective_scale_factor*regret, "lg(regret)": np.log10(-objective_scale_factor)+log_regret})
 
 wandb.finish()
