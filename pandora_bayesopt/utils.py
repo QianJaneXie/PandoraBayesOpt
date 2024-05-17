@@ -53,7 +53,7 @@ def fit_gp_model(
 
     else:
         if Yvar is None:
-            Yvar = torch.ones(Y.shape) * noise_level
+            Yvar = torch.ones(len(Y)) * noise_level
         
         likelihood = FixedNoiseGaussianLikelihood(noise=Yvar)
 
