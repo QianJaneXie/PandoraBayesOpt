@@ -16,6 +16,6 @@ parameters:
     values:
       - ThompsonSampling
       - ExpectedImprovement
-      - Gittins_Lambda_0001
+      - GittinsIndex
       - MultiStepLookaheadEI
       - KnowledgeGradient

@@ -88,6 +88,13 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
+    elif policy == 'GittinsIndex':
+        Optimizer.run(
+            num_iterations = num_iterations, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.0001,
+            bisection_early_stopping = True
+        )
     
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
