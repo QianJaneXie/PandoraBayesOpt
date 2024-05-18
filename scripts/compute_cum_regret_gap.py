@@ -128,7 +128,7 @@ if __name__ == "__main__":
         print("seed:", seed)
         (UCB_best_history, UCB_regret_history) = run_bayesopt_experiment(wandb.config, "UpperConfidenceBound", seed)
         (Gittins_best_history, Gittins_regret_history) = run_bayesopt_experiment(wandb.config, "GittinsIndex", seed)
-        regret_gap_history = UCB_regret_history - Gittins_regret_history
+        regret_gap_history = np.array(UCB_regret_history) - np.array(Gittins_regret_history)
         ave_regret_gap = np.mean(regret_gap_history)
         ave_regret_gap_arr.append(ave_regret_gap)
     
