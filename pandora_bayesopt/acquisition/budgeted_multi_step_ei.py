@@ -141,10 +141,10 @@ class budgeted_ei_argfac(Module):
         else:
             x = model.train_inputs[0]
             y = model.train_targets
-            if model.outcome_transform == None:
-                y_original_scale = y
-            else:
+            if hasattr(model, 'outcome_transform'):
                 y_original_scale = model.outcome_transform.untransform(y)[0]
+            else:
+                y_original_scale = y
             obj_vals = y_original_scale
             costs = self.cost_function(x)
             current_budget = self.budget_plus_cumulative_cost - costs.sum(dim=-1, keepdim=False)
