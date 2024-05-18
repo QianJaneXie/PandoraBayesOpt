@@ -139,7 +139,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         posterior_transform: Optional[PosteriorTransform] = None,
         maximize: bool = True,
         bound: torch.Tensor = torch.tensor([[-1.0], [1.0]], dtype=torch.float64),
-        eps: float = 1e-4,
+        eps: float = 1e-6,
         cost: Optional[Callable] = None,
         unknown_cost: bool = False,
         bisection_early_stopping: bool = False
