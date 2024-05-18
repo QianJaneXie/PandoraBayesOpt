@@ -53,6 +53,7 @@ class BayesianOptimizer:
         self.best_history = []
         self.cumulative_cost = 0.0
         self.cost_history = [0.0]
+        self.acq_history = []
         self.runtime_history = []
         self.initialize_points(initial_points)
         self.suggested_x_full_tree = None
@@ -300,6 +301,8 @@ class BayesianOptimizer:
         if acquisition_function_class == "RandomSearch":
             self.current_acq = new_value.item()
 
+        self.acq_history.append(self.current_acq)
+
         # Check if lmbda needs to be updated in the next iteration
         if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
             if (self.maximize and self.current_acq < self.best_f) or (not self.maximize and -self.current_acq > self.best_f):
@@ -402,6 +405,9 @@ class BayesianOptimizer:
 
     def get_lmbda_history(self):
         return self.lmbda_history
+    
+    def get_acq_history(self):
+        return self.acq_history
     
     def get_runtime_history(self):
         return self.runtime_history
