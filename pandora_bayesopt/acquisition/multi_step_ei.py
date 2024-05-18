@@ -86,10 +86,10 @@ class MultiStepLookaheadEI(qMultiStepLookahead):
 
 def multi_step_ei_argfac(model: Model, X: Tensor) -> Dict[str, Any]:
     y = model.train_targets
-    if model.outcome_transform == None:
-        y_original_scale = y
-    else:
+    if hasattr(model, 'outcome_transform'):
         y_original_scale = model.outcome_transform.untransform(y)[0]
+    else:
+        y_original_scale = y
     obj_vals = y_original_scale
     params = {
         "best_f": obj_vals.max(dim=-1).values,
