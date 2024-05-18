@@ -121,7 +121,7 @@ def run_bayesopt_experiment(config):
                 for x in X_unnorm:
                     # Set the seed based on X to ensure consistent randomness
                     np.random.seed(0)
-                    object_location, object_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
+                    object_location, object_location2, robot_location, robot_location2 = torch.tensor(robot_pushing_14d(x[0].item(), x[1].item(), x[2].item(), x[3].item(), x[4].item(), x[5].item(), x[6].item(), x[7].item(), x[8].item(), x[9].item(), x[10].item(), x[11].item(), x[12].item(), x[13].item()))
                     objective_X.append(-torch.dist(target_location, object_location)-torch.dist(target_location2, object_location2))
                 np.random.seed()  # Reset the seed
                 return torch.tensor(objective_X)
@@ -209,11 +209,11 @@ def run_bayesopt_experiment(config):
             acquisition_function_class=ExpectedImprovementWithCost,
             cost_cooling=True
         )
-    # elif policy == 'BudgetedMultiStepLookaheadEI':
-        # Optimizer.run_until_budget(
-        #     budget=budget, 
-        #     acquisition_function_class=BudgetedMultiStepLookaheadEI
-        # )
+    elif policy == 'BudgetedMultiStepLookaheadEI':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=BudgetedMultiStepLookaheadEI
+        )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
             budget=budget, 
