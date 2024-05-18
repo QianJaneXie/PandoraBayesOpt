@@ -12,7 +12,7 @@ from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_p
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
-from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
+from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
@@ -138,6 +138,11 @@ def run_bayesopt_experiment(config):
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost,
             cost_cooling = True
+        )
+    elif policy == 'BudgetedMultiStepLookaheadEI':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=BudgetedMultiStepLookaheadEI
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
