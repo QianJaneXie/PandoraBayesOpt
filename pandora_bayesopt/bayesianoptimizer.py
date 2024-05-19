@@ -242,8 +242,8 @@ class BayesianOptimizer:
                 acqf_args['batch_size'] = 1
                 acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
                 acqf_args['num_fantasies'] = [1, 1, 1]
-            else:
-                acqf_args.update(**acqf_kwargs)
+                
+            acqf_args.update(**acqf_kwargs)
 
 
             if is_ts == False and is_qs == False:

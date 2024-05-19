@@ -52,7 +52,7 @@ class GittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
-        for _ in range(100):
+        for i in range(100):
             sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
             if maximize:
                 l = torch.where(sgn_m >= 0, m, l)
@@ -63,6 +63,7 @@ class GittinsIndexFunction(Function):
             m = (h + l) / 2
             if bisection_early_stopping and torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) <= eps:
                 break
+        print("number of bisection iterations:", i)
 
         # Save u for backward computation
         u = _scaled_improvement(mean, sigma, m, maximize)
