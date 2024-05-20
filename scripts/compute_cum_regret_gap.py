@@ -108,7 +108,7 @@ def run_bayesopt_experiment(config, policy, seed):
             num_iterations=num_iterations, 
             acquisition_function_class = GittinsIndex,
             lmbda = lmbda,
-            bisection_early_stopping = True
+            # bisection_early_stopping = True
         )
     
     best_history = Optimizer.get_best_history()
