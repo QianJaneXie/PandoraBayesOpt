@@ -176,6 +176,8 @@ class BayesianOptimizer:
 
             elif acquisition_function_class == GittinsIndex:
                 acqf_args['maximize'] = self.maximize
+                if acqf_kwargs.get('bisection_early_stopping') == True:
+                    acqf_args['bisection_early_stopping'] = acqf_kwargs['bisection_early_stopping']
                 if acqf_kwargs.get('step_EIpu') == True:
                     if self.need_lmbda_update:
                         if callable(self.cost) or callable(self.objective_cost):
@@ -243,7 +245,8 @@ class BayesianOptimizer:
                 acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
                 acqf_args['num_fantasies'] = [1, 1, 1]
                 
-            acqf_args.update(**acqf_kwargs)
+            else:
+                acqf_args.update(**acqf_kwargs)
 
 
             if is_ts == False and is_qs == False:
