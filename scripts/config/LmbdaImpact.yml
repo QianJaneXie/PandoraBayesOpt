@@ -18,18 +18,10 @@ parameters:
     values: ['sobol']
   policy:
     values:
-      # - RandomSearch
-      # - ExpectedImprovement
-      # - ThompsonSampling
-      # - UpperConfidenceBound
-      # - PredictiveEntropySearch
-      # - KnowledgeGradient
       - Gittins_Lambda_1
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
       - Gittins_Lambda_00001
+      - Gittins_Lambda_000001
       - Gittins_Step_Divide2
-      # - Gittins_Step_Divide5
-      # - Gittins_Step_Divide10
-      # - Gittins_Step_EIpu
