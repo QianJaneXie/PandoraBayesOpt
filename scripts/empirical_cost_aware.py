@@ -17,8 +17,8 @@ import wandb
 from scipy.interpolate import interp1d
 
 
-# use a GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# # use a GPU if available
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)

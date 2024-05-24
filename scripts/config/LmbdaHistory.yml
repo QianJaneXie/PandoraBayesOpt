@@ -1,0 +1,33 @@
+name: LmbdaHistory
+program: scripts/lmbda_history.py
+method: grid
+parameters:
+  dim:
+    values: [4,8,16,32]
+  kernel:
+    values: ["Matern52"]
+  lengthscale:
+    values: [1.0,0.1]
+  amplitude:
+    values: [1.0]
+  seed:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+  input_normalization:
+    value: false
+  draw_initial_method:
+    values: ['sobol']
+  policy:
+    values:
+      # - RandomSearch
+      # - ExpectedImprovement
+      # - ThompsonSampling
+      # - UpperConfidenceBound
+      # - PredictiveEntropySearch
+      # - KnowledgeGradient
+      # - Gittins_Lambda_01
+      # - Gittins_Lambda_001
+      # - Gittins_Lambda_0001
+      - Gittins_Step_Divide2
+      - Gittins_Step_Divide5
+      - Gittins_Step_Divide10
+      - Gittins_Step_EIpu
