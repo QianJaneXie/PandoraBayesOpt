@@ -82,7 +82,7 @@ class BayesianOptimizer:
         
         is_ms = False
         is_ts = False
-        is_qs = False
+        is_pes = False
 
         if acquisition_function_class == BudgetedMultiStepLookaheadEI:
             gaussian_likelihood = True
@@ -130,7 +130,7 @@ class BayesianOptimizer:
                 
             elif acquisition_function_class == qPredictiveEntropySearch:
 
-                is_qs = True
+                is_pes = True
 
                 # Draw sample path(s)
                 paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
@@ -249,7 +249,7 @@ class BayesianOptimizer:
                 acqf_args.update(**acqf_kwargs)
 
 
-            if is_ts == False and is_qs == False:
+            if is_ts == False and is_pes == False:
                 acq_function = acquisition_function_class(**acqf_args)
                 if self.suggested_x_full_tree is not None:
                     batch_initial_conditions = warmstart_multistep(
