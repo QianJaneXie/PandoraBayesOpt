@@ -7,7 +7,7 @@ parameters:
   kernel:
     values: ["Matern32", "Matern52", "RBF"]
   lengthscale:
-    values: [1.0,0.1,0.01]
+    values: [1.0,0.5,0.1]
   amplitude:
     values: [1.0]
   seed:
