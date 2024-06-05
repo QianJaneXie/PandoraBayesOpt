@@ -39,25 +39,25 @@ def run_bayesopt_experiment(config):
         nu = 1.5
         if lengthscale == 1.0: 
             num_iterations = 10*dim
+        elif lengthscale == 0.5:
+            num_iterations = 15*dim
         elif lengthscale == 0.1:
-            num_iterations = 25*dim
-        elif lengthscale == 0.01:
             num_iterations = 25*dim
     elif kernel == 'Matern52':
         nu = 2.5
         if lengthscale == 1.0: 
             num_iterations = 10*dim
+        elif lengthscale == 0.5:
+            num_iterations = 15*dim
         elif lengthscale == 0.1:
-            num_iterations = 25*dim
-        elif lengthscale == 0.01:
             num_iterations = 25*dim
     elif kernel == 'RBF':
         if lengthscale == 1.0: 
             num_iterations = 5*dim
+        elif lengthscale == 0.5:
+            num_iterations = 10*dim 
         elif lengthscale == 0.1:
             num_iterations = 20*dim
-        elif lengthscale == 0.01:
-            num_iterations = 20*dim 
     seed = config['seed']
     torch.manual_seed(seed)
     
@@ -207,20 +207,22 @@ def run_bayesopt_experiment(config):
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     regret_history = Optimizer.get_regret_history(global_optimum_value.item())
+    acq_history = Optimizer.get_acq_history()
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
     print("Regret history:", regret_history)
+    print("Acq history:", acq_history)
     print()
 
-    return (global_optimum_value.item(), cost_history, best_history, regret_history)
+    return (global_optimum_value.item(), cost_history, best_history, regret_history, acq_history)
 
 wandb.init()
-(global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(global_optimum_value, cost_history, best_history, regret_history, acq_history) = run_bayesopt_experiment(wandb.config)
 
 wandb.log({"global optimum value": global_optimum_value})
 
-for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "lg(regret)": np.log10(regret)})
+for cost, best, regret, acq in zip(cost_history, best_history, regret_history, acq_history):
+    wandb.log({"cumulative cost": cost, "best observed": best, "regret": regret, "lg(regret)": np.log10(regret), "acquisition value": acq})
 
 wandb.finish()
