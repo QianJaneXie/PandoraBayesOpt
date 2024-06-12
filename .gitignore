@@ -166,5 +166,8 @@ cython_debug/
 # Weights and biases
 wandb/
 
-# Data for plotting
+# Quantile data for plotting
 notebooks/plot/results/
+
+# Output log data
+notebooks/output
