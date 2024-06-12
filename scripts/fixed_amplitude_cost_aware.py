@@ -48,6 +48,8 @@ def run_bayesopt_experiment(config):
     # Set the budget
     if lengthscale == 1.0 or dim == 32: 
         budget = 25*dim
+    elif lengthscale == 0.5:
+        budget = 40*dim
     else:
         budget = 50*dim
     
