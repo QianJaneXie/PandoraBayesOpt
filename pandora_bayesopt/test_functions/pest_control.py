@@ -1,6 +1,8 @@
-# Uniform-cost and cost-aware version of Pest Control problem 
-# Reference: GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/pest_control.py
-# and GitHub repo by QUVA Deep Vision Lab https://github.com/QUVA-Lab/COMBO/blob/9529eabb86365ce3a2ca44fff08291a09a853ca2/COMBO/experiments/test_functions/multiple_categorical.py#L81
+#!/usr/bin/env python3
+
+# Original code from Yuchen Lily Li https://github.com/yucenli/bnn-bo
+# and QUVA Deep Vision Lab https://github.com/QUVA-Lab/COMBO
+# Modifications made by Qian Xie, 2024 to to adapt this Lunar Lander problem for cost-aware optimization 
 
 from typing import Optional
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import Callable, Optional, Union
 import torch
 from torch import Tensor

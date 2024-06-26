@@ -1,4 +1,8 @@
-# Reference: GitHub repo by Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO/blob/740cbf8397ac68bcdb1a196f2b56381adb1be1b4/budgeted_bo/acquisition_functions/ei_puc.py
+#!/usr/bin/env python3
+
+# Original code from Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO
+# Copyright (c) 2021 Raul Astudillo
+# Modifications made by Qian Xie, 2024 to handle known costs
 
 from typing import Callable, Optional, Union
 import torch

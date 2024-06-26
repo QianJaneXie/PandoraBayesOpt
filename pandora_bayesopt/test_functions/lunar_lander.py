@@ -1,6 +1,7 @@
-# Uniform-cost and cost-aware version of Lunar Lander problem 
-# Reference: GitHub repo by Yucen Lily Li https://github.com/yucenli/bnn-bo/blob/d3627e69f1e07c5bc8906f5c8c58d79071830a3c/test_functions/lunar_lander.py
-__credits__ = ["Andrea PIERRÉ"]
+#!/usr/bin/env python3
+# Original code from Yuchen Lily Li https://github.com/yucenli/bnn-bo
+# __credits__ = ["Andrea PIERRÉ"]
+# Modifications made by Qian Xie, 2024 to to adapt this Lunar Lander problem for cost-aware optimization 
 
 import math
 import warnings

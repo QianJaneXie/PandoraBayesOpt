@@ -1,6 +1,10 @@
 #!/usr/bin/env python
-# Reference: GitHub repo by Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO/blob/740cbf8397ac68bcdb1a196f2b56381adb1be1b4/experiments/robot_pushing_src/robot_pushing_3d.py
+
+# Original code from Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO
+# Copyright (c) 2021 Raul Astudillo
 # Copyright (c) 2017 Zi Wang
+# Modifications made by Qian Xie, 2024 to add cost-aware Robot Pushing 4D and Robot Pushing 14D problems
+
 from .push_world import *
 
 

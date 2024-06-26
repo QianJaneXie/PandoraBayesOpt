@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-# Reference: GitHub repo by Zi Wang https://github.com/zi-w/Max-value-Entropy-Search/blob/8601220334507d210c7d5010569df75f48cd4eae/test_functions/python_related/push_world.py
+
+# Original code from Ari Anders and Zi Wang https://github.com/zi-w/Max-value-Entropy-Search
+# Copyright (c) 2017 Zi Wang
+# Modifications made by Qian Xie, 2024 to output not only the object position but also the robot hand position
+
 from Box2D import *
 from Box2D.b2 import *
 import numpy as np
