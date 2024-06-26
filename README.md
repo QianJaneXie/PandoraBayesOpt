@@ -22,6 +22,21 @@ This repository contains the implementation of the Pandora's box Gittins index (
 - **Illustrations**
   - EI/EIPC poor performance (via Bayesian-regret variable-amplitude)
   - Impact of lambda
+ 
+## Instruction
+All experiments are run via Weights & Biases (wandb) sweeps. Follow these steps to execute the experiments:
+
+1. **Prepare configuration file**: Each experiment requires a configuration file. These files can be found in the folder `scripts/config`. Select the appropriate configuration file for the experiment you want to run.
+   
+2. **Launch wandb agent**: The wandb agent is used to execute the sweeps. Launch the agent using the following command:
+   ```sh
+   wandb agent <sweep_id>
+
+3. **Run Bayesian optimization**: The Bayesian optimization process is executed with the hyperparameters specified in the configuration file. This is handled by the `run_bayesopt_experiment` function found in each script within the `scripts` folder. Make sure to review and understand the specific script you are running.
+
+4. **Log cata to wandb**: During the experiment, all relevant data and metrics are logged to wandb for tracking and analysis.
+
+5. **Review results**: After the experiments are complete, review the results logged in your wandb dashboard.
 
 ## Setup
 #### 1. Clone the GitHub repository
