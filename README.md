@@ -14,14 +14,14 @@ This repository contains the implementation of the Pandora's box Gittins index (
   - Budgeted Multi-step Lookahead EI (BMSEI)
  
 ## Contexts
-- Experiments
+- **Experiments**
   - Bayesian regret (fixed-amplitude)
   - Synthetic benchmark
-  - Empirical objective
+  - Empirical
   - Timing
-- Illustrations
-  - Bayesian regret (variable-amplitude)
-  - Impact of Lambda
+- **Illustrations**
+  - EI/EIPC poor performance (via Bayesian-regret variable-amplitude)
+  - Impact of lambda
 
 ## Setup
 #### 1. Clone the GitHub repository
