@@ -1,19 +1,25 @@
 # Cost-aware Bayesian optimization via the Pandora's box Gittins index
-This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variant PBGI-D. The policies are compared against various baselines in the context of uniform-cost and cost-aware Bayesian Optimization.
+This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variants. The policies are compared against various baselines in the context of uniform-cost and cost-aware Bayesian Optimization.
 
-## Baselines
-- Uniform-cost Bayesian optimization:
-  - Random Search (RS)
-  - Thompson Sampling (TS)
-  - Upper Confidence Bound (UCB)
-  - Expected Improvement (EI)
-  - Knowledge Gradient (KG)
-  - Multi-step Lookahead EI (MSEI)
-- Cost-aware Bayesian Optimization
-  - Expected Improvement Per Unit Cost (EIPC)
-  - Budgeted Multi-step Lookahead EI (BMSEI)
+## Policies
+- **Our Policies**:
+  - Pandora's box Gittins index (PBGI)*
+  - Pandora's box Gittins index with dynamic decay (PBGI-D)*
+- **Baselines**:
+  - Uniform-cost Bayesian optimization:
+    - Random search (RS)*
+    - Thompson sampling (TS)
+    - Upper confidence bound (UCB)
+    - Expected improvement (EI)*
+    - Knowledge gradient (KG)
+    - Multi-step lookahead EI (MSEI)
+  - Cost-aware Bayesian Optimization
+    - Expected improvement per unit cost (EIPC)
+    - Budgeted multi-step lookahead EI (BMSEI)
+ 
+*Note: PBGI, PBGI-D, RS, and EI were also run for cost-aware Bayesian optimization.
 
-The implementation of PBGI, EIPC, MSEI, and BMSEI can be found in `pandora_bayesopt/acquisition`.
+The implementation of PBGI, EIPC, MSEI, and BMSEI can be found in `pandora_bayesopt/acquisition`. The Bayesian optimization process with these policies can be found in the class BayesianOptimizer in `pandora_bayesopt/bayesianoptimizer.py`.
  
 ## Contexts
 - **Experiments**
@@ -43,7 +49,7 @@ All our experiments were run using Weights & Biases (wandb) for tracking and ana
      ```
 
 3. **Handle Hyperparameters**: 
-   The Bayesian optimization process is executed with the hyperparameters specified in the configuration file. This is handled by the `run_bayesopt_experiment` function found in each script within the `scripts` folder. If you choose to run the experiments using Python scripts directly, change the input of `run_bayesopt_experiment` from a configuration to a set of hyperparameters.
+   The Bayesian optimization process is executed with the hyperparameters specified in the configuration file. This is handled by the `run_bayesopt_experiment` function found in each script within the `scripts` folder. This function handles not only the Bayesian optimization process but also the objective function and the outputs. If you choose to run the experiments using Python scripts directly, change the input of `run_bayesopt_experiment` from a configuration to a set of hyperparameters.
 
 3. **Log data**: Whether using wandb or just Python scripts, ensure that all relevant data and metrics are logged for analysis.
 
