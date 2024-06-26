@@ -1,3 +1,5 @@
+# Reference: GitHub repo by Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO/blob/740cbf8397ac68bcdb1a196f2b56381adb1be1b4/budgeted_bo/acquisition_functions/ei_puc.py
+
 from typing import Callable, Optional, Union
 import torch
 from torch import Tensor
