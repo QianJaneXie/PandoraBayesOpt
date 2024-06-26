@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import Callable, Optional
 import torch
 from torch import Tensor
@@ -53,7 +55,7 @@ class BayesianOptimizer:
         self.best_history = []
         self.cumulative_cost = 0.0
         self.cost_history = [0.0]
-        self.acq_history = []
+        self.acq_history = [np.nan]
         self.runtime_history = []
         self.initialize_points(initial_points)
         self.suggested_x_full_tree = None
@@ -72,6 +74,7 @@ class BayesianOptimizer:
                 self.c = self.DEFAULT_COST
         if callable(self.objective_cost):
             self.y, self.c = self.objective_cost(initial_points)
+        self.acq_history.append(self.best_f)  # make sure the length of acq_history is the same as best_history
         self.update_best()
 
     def update_best(self):
@@ -89,9 +92,10 @@ class BayesianOptimizer:
         else:
             gaussian_likelihood = False
 
+        
         if acquisition_function_class == "RandomSearch":
             new_point = torch.rand(1, self.dim)
-        
+            
         else:
             if acquisition_function_class in (ExpectedImprovementWithCost, GittinsIndex, BudgetedMultiStepLookaheadEI):
                 model = fit_gp_model(
@@ -116,68 +120,44 @@ class BayesianOptimizer:
 
             acqf_args = {'model': model}
         
-            if acquisition_function_class == "ThompsonSampling":
-
-                is_ts = True
+            
+            if acquisition_function_class in ("ThompsonSampling", qPredictiveEntropySearch, "SurrogatePrice"):
             
                 # Draw sample path(s)
                 paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
                 
                 # Optimize
-                new_point, new_point_TS = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
+                optimal_input, optimal_output = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
 
-                self.current_acq = new_point_TS.item()
+                if acquisition_function_class == "ThompsonSampling":
+                    is_ts = True
+                    new_point = optimal_input
+                    self.current_acq = optimal_output.item()
                 
-            elif acquisition_function_class == qPredictiveEntropySearch:
+                elif acquisition_function_class == qPredictiveEntropySearch:
+                    is_pes = True
+                    PES = qPredictiveEntropySearch(model=model, optimal_inputs=optimal_input, maximize=self.maximize)
+                    new_point, new_point_PES = optimize_acqf(
+                        acq_function=PES,
+                        bounds=self.bounds,
+                        q=1,
+                        num_restarts=10*self.dim,
+                        raw_samples=200*self.dim,
+                        options={
+                                "batch_limit": 5,
+                                "maxiter": 200,
+                                "with_grad": False
+                            },
+                    )
+                    self.current_acq = new_point_PES.item()
 
-                is_pes = True
-
-                # Draw sample path(s)
-                paths = draw_matheron_paths(model, sample_shape=torch.Size([1]))
-                
-                # Optimize
-                optimal_input, _ = optimize_posterior_samples(paths=paths, bounds=self.bounds, maximize=self.maximize)
-                PES = qPredictiveEntropySearch(model=model, optimal_inputs=optimal_input, maximize=self.maximize)
-                new_point, new_point_PES = optimize_acqf(
-                    acq_function=PES,
-                    bounds=self.bounds,
-                    q=1,
-                    num_restarts=10*self.dim,
-                    raw_samples=200*self.dim,
-                    options={
-                            "batch_limit": 5,
-                            "maxiter": 200,
-                            "with_grad": False
-                        },
-                )
-                
-                self.current_acq = new_point_PES.item()
-
-            elif acquisition_function_class == UpperConfidenceBound:
-                if acqf_kwargs.get('heuristic') == True:
-                    acqf_args['beta'] = 2*np.log(self.dim*((self.cumulative_cost+1)**2)*(math.pi**2)/(6*0.1))/5
-                else:
-                    acqf_args['beta'] = acqf_kwargs['beta']
-                acqf_args['maximize'] = self.maximize
             
-            elif acquisition_function_class == ExpectedImprovement:
-                acqf_args['best_f'] = self.best_f
+            if acquisition_function_class == GittinsIndex:
                 acqf_args['maximize'] = self.maximize
-
-            elif acquisition_function_class == ExpectedImprovementWithCost:
-                acqf_args['best_f'] = self.best_f
-                acqf_args['maximize'] = self.maximize
-                acqf_args['cost'] = self.cost
-                acqf_args['unknown_cost'] = self.unknown_cost
-                if acqf_kwargs.get('cost_cooling') == True:
-                    cost_exponent = (self.budget - self.cumulative_cost) / self.budget
-                    cost_exponent = max(cost_exponent, 0)  # Ensure cost_exponent is non-negative
-                    acqf_args['cost_exponent'] = cost_exponent
-
-            elif acquisition_function_class == GittinsIndex:
-                acqf_args['maximize'] = self.maximize
+                
                 if acqf_kwargs.get('bisection_early_stopping') == True:
                     acqf_args['bisection_early_stopping'] = acqf_kwargs['bisection_early_stopping']
+                
                 if acqf_kwargs.get('step_EIpu') == True:
                     if self.need_lmbda_update:
                         if callable(self.cost) or callable(self.objective_cost):
@@ -229,12 +209,38 @@ class BayesianOptimizer:
                 acqf_args['cost'] = self.cost
                 acqf_args['unknown_cost'] = self.unknown_cost
 
+            
+            elif acquisition_function_class == UpperConfidenceBound:
+                if acqf_kwargs.get('heuristic') == True:
+                    acqf_args['beta'] = 2*np.log(self.dim*((self.cumulative_cost+1)**2)*(math.pi**2)/(6*0.1))/5
+                else:
+                    acqf_args['beta'] = acqf_kwargs['beta']
+                acqf_args['maximize'] = self.maximize
+            
+            
+            elif acquisition_function_class == ExpectedImprovement:
+                acqf_args['best_f'] = self.best_f
+                acqf_args['maximize'] = self.maximize
+
+            
+            elif acquisition_function_class == ExpectedImprovementWithCost:
+                acqf_args['best_f'] = self.best_f
+                acqf_args['maximize'] = self.maximize
+                acqf_args['cost'] = self.cost
+                acqf_args['unknown_cost'] = self.unknown_cost
+                if acqf_kwargs.get('cost_cooling') == True:
+                    cost_exponent = (self.budget - self.cumulative_cost) / self.budget
+                    cost_exponent = max(cost_exponent, 0)  # Ensure cost_exponent is non-negative
+                    acqf_args['cost_exponent'] = cost_exponent
+
+            
             elif acquisition_function_class == MultiStepLookaheadEI:
                 is_ms = True
                 acqf_args['batch_size'] = 1
                 acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
                 acqf_args['num_fantasies'] = [1, 1, 1]
                 
+            
             elif acquisition_function_class == BudgetedMultiStepLookaheadEI:
                 is_ms = True
                 acqf_args['cost_function'] = copy(self.cost)
@@ -245,10 +251,12 @@ class BayesianOptimizer:
                 acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
                 acqf_args['num_fantasies'] = [1, 1, 1]
                 
+            
             else:
                 acqf_args.update(**acqf_kwargs)
 
 
+            
             if is_ts == False and is_pes == False:
                 acq_function = acquisition_function_class(**acqf_args)
                 if self.suggested_x_full_tree is not None:
@@ -288,8 +296,11 @@ class BayesianOptimizer:
                     candidates = acq_function.extract_candidates(candidates)
 
                 best_idx = torch.argmax(candidates_acq_vals.view(-1), dim=0)
-                new_point = candidates[best_idx]
-                self.current_acq = candidates_acq_vals[best_idx].item()
+                best_point = candidates[best_idx]
+                best_acq_val = candidates_acq_vals[best_idx].item()
+
+                new_point = best_point
+                self.current_acq = best_acq_val
 
 
         if self.unknown_cost:
