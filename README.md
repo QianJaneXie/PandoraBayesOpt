@@ -1,5 +1,27 @@
 # Cost-aware Bayesian optimization via the Pandora's box Gittins index
-This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variants as well as the comparison against traditional policies such as Random Search, Thompson Sampling, Upper Confidence Bound (UCB), Expected Improvement (EI), Expected Improvement Per Unit Cost (EIPC), Knowledge Gradient (KG), (Budgeted) Multi-step Lookahead EI in the context of uniform-cost and heterogeneous-cost Bayesian Optimization.
+This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variant PBGI-D. The policies are compared against various baselines in the context of uniform-cost and cost-aware Bayesian Optimization.
+
+## Baselines
+- Uniform-cost Bayesian optimization:
+  - Random Search (RS)
+  - Thompson Sampling (TS)
+  - Upper Confidence Bound (UCB)
+  - Expected Improvement (EI)
+  - Knowledge Gradient (KG)
+  - Multi-step Lookahead EI (MSEI)
+- Cost-aware Bayesian Optimization
+  - Expected Improvement Per Unit Cost (EIPC)
+  - Budgeted Multi-step Lookahead EI (BMSEI)
+ 
+## Contexts
+- Experiments
+  - Bayesian regret (fixed-amplitude)
+  - Synthetic benchmark
+  - Empirical objective
+  - Timing
+- Illustrations
+  - Bayesian regret (variable-amplitude)
+  - Impact of Lambda
 
 ## Setup
 #### 1. Clone the GitHub repository
