@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
 
 import torch
 from pandora_bayesopt.utils import fit_gp_model

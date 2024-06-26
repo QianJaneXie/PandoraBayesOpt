@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+
+# Original code from Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO
+# Copyright (c) 2021 Raul Astudillo
+
 import torch
 from botorch.posteriors import Posterior
 from botorch.sampling.normal import NormalMCSampler

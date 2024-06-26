@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
 
-# # BayesOPT Example for showing Gittins >> EIpu
+# BayesOPT Example for showing Gittins >> EIpu
 # Extension of the numerical examples presented in Theorem 1 of Raul and Peter's paper which aims to show the limitation of EIpu and EI. The experiment extends the scope from Pandora's box (discrete finite points) to Bayesian optimization (continuous domain) and compares Gittins with EIpu/EI.
 
 import torch

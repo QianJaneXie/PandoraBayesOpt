@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import gpytorch
 
 class VariableAmplitudeKernel(gpytorch.kernels.Kernel):

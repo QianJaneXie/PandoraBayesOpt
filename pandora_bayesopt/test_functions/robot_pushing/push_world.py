@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Original code from Ari Anders and Zi Wang https://github.com/zi-w/Max-value-Entropy-Search
 # Copyright (c) 2017 Zi Wang

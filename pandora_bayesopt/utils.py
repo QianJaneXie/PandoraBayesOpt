@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import Optional
 import torch
 from torch import Tensor

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # Original code from Yuchen Lily Li https://github.com/yucenli/bnn-bo
 # __credits__ = ["Andrea PIERRÉ"]
 # Modifications made by Qian Xie, 2024 to to adapt this Lunar Lander problem for cost-aware optimization 

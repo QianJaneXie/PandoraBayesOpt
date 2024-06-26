@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
 
 import torch
 from botorch.test_functions.synthetic import Ackley, Rosenbrock, Levy

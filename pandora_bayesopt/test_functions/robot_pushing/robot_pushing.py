@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Original code from Raul Astudillo https://github.com/RaulAstudillo06/BudgetedBO
 # Copyright (c) 2021 Raul Astudillo

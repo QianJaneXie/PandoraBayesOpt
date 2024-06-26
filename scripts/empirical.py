@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
 
 from pandora_bayesopt.test_functions.lunar_lander import LunarLanderProblem
 from pandora_bayesopt.test_functions.pest_control import PestControl
