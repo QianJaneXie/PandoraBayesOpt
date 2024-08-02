@@ -30,11 +30,11 @@ class BayesianOptimizer:
                  objective: Optional[Callable] = None, 
                  cost: Optional[Callable] = None, 
                  objective_cost: Optional[Callable] = None, 
-                 input_standardize: bool = False, 
+                 output_standardize: bool = False, 
                  kernel: Optional[torch.nn.Module] = None
                 ):
         self.validate_functions(objective, objective_cost)
-        self.initialize_attributes(objective, cost, objective_cost, dim, maximize, initial_points, input_standardize, kernel)
+        self.initialize_attributes(objective, cost, objective_cost, dim, maximize, initial_points, output_standardize, kernel)
     
     def validate_functions(self, objective, objective_cost):
         # Make sure that the objective function and the cost function are passed in the correct form
@@ -44,7 +44,7 @@ class BayesianOptimizer:
             raise ValueError("Only one of 'objective' or 'objective_cost' can be provided.")
         self.unknown_cost = callable(objective_cost)
     
-    def initialize_attributes(self, objective, cost, objective_cost, dim, maximize, initial_points, input_standardize, kernel):
+    def initialize_attributes(self, objective, cost, objective_cost, dim, maximize, initial_points, output_standardize, kernel):
         self.objective = objective
         self.cost = cost if cost is not None else self.DEFAULT_COST
         self.objective_cost = objective_cost
@@ -61,7 +61,7 @@ class BayesianOptimizer:
         self.suggested_x_full_tree = None
 
         # GP model parameters
-        self.input_standardize = input_standardize
+        self.output_standardize = output_standardize
         self.kernel = kernel
 
     def initialize_points(self, initial_points):
@@ -104,7 +104,7 @@ class BayesianOptimizer:
                     cost_X=self.c.detach(), 
                     unknown_cost=self.unknown_cost,  
                     gaussian_likelihood=gaussian_likelihood,
-                    input_standardize=self.input_standardize,
+                    output_standardize=self.output_standardize,
                     kernel=self.kernel
                 )
             else:
@@ -114,7 +114,7 @@ class BayesianOptimizer:
                     cost_X=self.c.detach(), 
                     unknown_cost=False,  
                     gaussian_likelihood=gaussian_likelihood,
-                    input_standardize=self.input_standardize,
+                    output_standardize=self.output_standardize,
                     kernel=self.kernel
                 )
 

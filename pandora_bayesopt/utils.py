@@ -26,7 +26,7 @@ def fit_gp_model(
         Yvar: Optional[torch.Tensor] = None, 
         noise_level: float = 1e-4,
         gaussian_likelihood: bool = False,
-        input_standardize: bool = False,
+        output_standardize: bool = False,
     ):
     # Ensure X is a 2D tensor [num_data, num_features]
     if X.ndim == 1:
@@ -60,14 +60,14 @@ def fit_gp_model(
         likelihood = FixedNoiseGaussianLikelihood(noise=Yvar)
 
     # Outcome transform
-    if input_standardize == True:
+    if output_standardize == True:
         outcome_transform = Standardize(m=Y.shape[-1])
     else:
         outcome_transform = None
    
     model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = likelihood, covar_module=kernel, outcome_transform=outcome_transform)
 
-    if input_standardize == True:
+    if output_standardize == True:
         model.outcome_transform.eval()
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_model(mll)
