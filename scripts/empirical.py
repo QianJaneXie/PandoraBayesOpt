@@ -137,7 +137,7 @@ def run_bayesopt_experiment(config):
         maximize=maximize, 
         initial_points=init_x, 
         objective=objective_function,
-        input_standardize=input_standardize
+        output_standardize=output_standardize
     )
     if policy == 'RandomSearch':
         Optimizer.run(
