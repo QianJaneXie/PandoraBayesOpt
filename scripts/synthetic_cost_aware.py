@@ -30,7 +30,7 @@ def run_bayesopt_experiment(config):
     dim = config['dim']
     seed = config['seed']
     torch.manual_seed(seed)
-    input_standardize = config['input_normalization']
+    output_standardize = config['output_normalization']
     draw_initial_method = config['draw_initial_method']
     policy = config['policy']
     budget = config['budget_to_dimension_ratio']*dim
@@ -133,7 +133,7 @@ def run_bayesopt_experiment(config):
         initial_points=init_x,
         objective=objective_function, 
         cost=cost_function,
-        input_standardize=input_standardize
+        output_standardize=output_standardize
     )
     if policy == 'RandomSearch':
         Optimizer.run_until_budget(

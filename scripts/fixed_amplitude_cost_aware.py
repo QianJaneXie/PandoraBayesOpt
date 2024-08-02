@@ -106,7 +106,7 @@ def run_bayesopt_experiment(config):
     if draw_initial_method == 'sobol':
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
-    input_standardize = config['input_normalization']
+    output_standardize = config['output_normalization']
 
     policy = config['policy']
     print("policy:", policy)
@@ -117,7 +117,7 @@ def run_bayesopt_experiment(config):
         initial_points=init_x,
         objective=objective_function, 
         cost=cost_function,
-        input_standardize=input_standardize
+        output_standardize=output_standardize
     )
     if policy == 'RandomSearch':
         Optimizer.run_until_budget(

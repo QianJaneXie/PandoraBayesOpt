@@ -46,7 +46,7 @@ def run_bayesopt_experiment(config):
 
     seed = config['seed']
     torch.manual_seed(seed)
-    input_standardize = config['input_normalization']
+    output_standardize = config['output_normalization']
     policy = config['policy']
     print("policy:", policy)
     maximize = True
@@ -131,7 +131,7 @@ def run_bayesopt_experiment(config):
         initial_points=init_x, 
         kernel=kernel, 
         cost=cost_function,
-        input_standardize=input_standardize
+        output_standardize=output_standardize
     )
     if policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
