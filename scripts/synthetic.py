@@ -36,21 +36,21 @@ def run_bayesopt_experiment(config):
 
     if problem == 'Ackley':
         ackley_function = Ackley(dim=dim)
-        scaled_constant = -1
+        scale_factor = -1
         def objective_function(X):
-            return ackley_function(2*X-1)/scaled_constant
+            return ackley_function(2*X-1)/scale_factor
         global_optimum_value = 0
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
-        scaled_constant = -1000
+        scale_factor = -100000
         def objective_function(X):
-            return rosenbrock_function(15*X-5)/scaled_constant
+            return rosenbrock_function(15*X-5)/scale_factor
         global_optimum_value = 0
     if problem == 'Levy':
         levy_function = Levy(dim=dim)
-        scaled_constant = -100
+        scale_factor = -100
         def objective_function(X):
-            return levy_function(20*X-10)/scaled_constant
+            return levy_function(20*X-10)/scale_factor
         global_optimum_value = 0
 
     # Test performance of different policies
@@ -149,7 +149,7 @@ def run_bayesopt_experiment(config):
     
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
-    regret_history = Optimizer.get_regret_history(global_optimum_value/scaled_constant)
+    regret_history = Optimizer.get_regret_history(global_optimum_value/scale_factor)
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
@@ -157,12 +157,12 @@ def run_bayesopt_experiment(config):
 
     print()
 
-    return (scaled_constant, cost_history, best_history, regret_history)
+    return (scale_factor, cost_history, best_history, regret_history)
 
 wandb.init()
-(scaled_constant, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(scale_factor, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
 
 for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"cumulative cost": cost, "best observed": scaled_constant*best, "regret": -scaled_constant*regret, "lg(regret)":np.log10(-scaled_constant)+np.log10(regret)})
+    wandb.log({"cumulative cost": cost, "best observed": scale_factor*best, "regret": -scale_factor*regret, "lg(regret)":np.log10(-scale_factor)+np.log10(regret)})
 
 wandb.finish()

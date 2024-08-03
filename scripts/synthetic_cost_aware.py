@@ -94,7 +94,7 @@ def run_bayesopt_experiment(config):
 
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
-        objective_scale_factor = -1000
+        objective_scale_factor = -100000
         def objective_function(X):
             return rosenbrock_function(15*X-5)/objective_scale_factor
         global_optimum_value = 0
