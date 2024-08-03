@@ -46,7 +46,7 @@ def run_bayesopt_experiment(config):
 
     seed = config['seed']
     torch.manual_seed(seed)
-    output_standardize = config['output_normalization']
+    output_standardize = config['output_standardize']
     policy = config['policy']
     print("policy:", policy)
     maximize = True

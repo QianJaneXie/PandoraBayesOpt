@@ -109,7 +109,7 @@ def run_bayesopt_experiment(config):
     if draw_initial_method == 'sobol':
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
-    output_standardize = config['output_normalization']
+    output_standardize = config['output_standardize']
 
     policy = config['policy']
     print("policy:", policy)
