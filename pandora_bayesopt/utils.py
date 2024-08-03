@@ -67,8 +67,6 @@ def fit_gp_model(
    
     model = SingleTaskGP(train_X=X, train_Y=Y, likelihood = likelihood, covar_module=kernel, outcome_transform=outcome_transform)
 
-    # if output_standardize == True:
-    #     model.outcome_transform.eval()
     mll = ExactMarginalLogLikelihood(model.likelihood, model)
     fit_gpytorch_model(mll)
     return model
