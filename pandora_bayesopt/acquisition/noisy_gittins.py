@@ -1,60 +1,55 @@
 #!/usr/bin/env python3
 
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 import torch
 from torch import Tensor
-from torch.autograd import (Function, grad)
-from botorch.acquisition import AnalyticAcquisitionFunction
-from botorch.models.model import Model
-from botorch.acquisition.analytic import (_scaled_improvement, _ei_helper)
+from botorch.models.gpytorch import GPyTorchModel
+from botorch.acquisition.analytic import (_check_noisy_ei_model, nullcontext, legacy_ei_numerics_warning, _get_noiseless_fantasy_model)
 from botorch.acquisition.objective import PosteriorTransform
 from botorch.utils.transforms import t_batch_mode_transform
-from botorch.utils.probability.utils import (
-    ndtr as Phi,
-    phi,
-)
 from gittins import GittinsIndexFunction, GittinsIndex
 
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
 
-class GittinsIndex(AnalyticAcquisitionFunction):
-    r"""Single-outcome/Two-outcome Gittins Index (analytic).
+class NoisyGittinsIndex(GittinsIndex):
+    r"""Single-outcome/Two-outcome Noisy Gittins Index (via fantasies).
 
-    Computes Gittins index using the analytic formula for a Normal posterior distribution. Unlike the
-    MC-based acquisition functions, this relies on the posterior at single test
-    point being Gaussian (and require the posterior to implement `mean` and
-    `variance` properties). Only supports the case of `q=1`. The model must be
-    single-outcome.
+    Computes Noisy Gittins index by replacing the Expected Improvement with the average Expected
+    Improvement value of a number of fantasy models in the standard Gittins index computation.
+    Assumes that the posterior distribution of the model is Gaussian.
+    The model can be either single-outcome or two-outcome.
 
-    `GI(x) = argmin_g |E(max(f(x) - g, 0))-lmbda * c(x)|,`
+    `NGI(x) = argmin_g |E(max(y - g, 0))-lmbda * c(x)|, (y, Y_baseline) ~ f((x, X_baseline))`
 
-    where the expectation is taken over the value of stochastic function `f` at `x`.
+    where `X_baseline` are previously observed points.
 
     Example:
         Uniform-cost:
-        >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.0001)
-        >>> gi = GI(test_X)
+        >>> model = SingleTaskGP(train_X, train_Y, train_Yvar=train_Yvar)
+        >>> NGI = NoisyGittinsIndex(model, train_X, lmbda=0.0001)
+        >>> ngi = NGI(test_X)
         
         Varing-cost:
         >>> def cost_function(x):
         >>>     return 1+20*x.mean(dim=-1))
-        >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.0001, cost=cost_function)
-        >>> gi = GI(test_X)
+        >>> model = SingleTaskGP(train_X, train_Y, train_Yvar=train_Yvar)
+        >>> NGI = NoisyGittinsIndex(model, train_X, lmbda=0.0001, cost=cost_function)
+        >>> ngi = NGI(test_X)
 
         Unknown-cost:
-        >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
-        >>> gi = GI(test_X)
+        >>> model = SingleTaskGP(train_X, train_Y, train_Yvar=train_Yvar)
+        >>> NGI = NoisyGittinsIndex(model, train_X, lmbda=0.0001, cost=cost_function, unknown_cost=True)
+        >>> ngi = NGI(test_X)
     """
 
     def __init__(
         self,
-        model: Model,
+        model: GPyTorchModel,
+        X_observed: Tensor,
         lmbda: float,
+        num_fantasies: int = 20,
         posterior_transform: Optional[PosteriorTransform] = None,
         maximize: bool = True,
         bound: torch.Tensor = torch.tensor([[-1.0], [1.0]], dtype=torch.float64),
@@ -62,24 +57,38 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         cost: Optional[Callable] = None,
         unknown_cost: bool = False,
         bisection_early_stopping: bool = False
-    ):
-        r"""Single-outcome/Two-outcome Gittins Index (analytic).
-        
+    ) -> None:
+        r"""Single-outcome Noisy Expected Improvement (via fantasies).
+
         Args:
-            model: A fitted single-outcome model or a fitted two-outcome model, 
-                where the first output corresponds to the objective 
-                and the second one to the log-cost.
-            lmbda: A scalar representing the cost-per-sample or the scaling factor of the cost function.
-            posterior_transform: A PosteriorTransform. If using a multi-output model,
-                a PosteriorTransform that transforms the multi-output posterior into a
-                single-output posterior is required.
+            model: A fitted single-outcome model. Only `SingleTaskGP` models with
+                known observation noise are currently supported.
+            X_observed: A `n x d` Tensor of observed points that are likely to
+                be the best observed points so far.
+            num_fantasies: The number of fantasies to generate. The higher this
+                number the more accurate the model (at the expense of model
+                complexity and performance).
             maximize: If True, consider the problem a maximization problem.
-            cost: A callable cost function. If None, consider the problem a uniform-cost problem.
-            unknown_cost: If True, consider the problem an unknown-cost problem.
-            bound: A `2 x d` tensor of lower and upper bound for each column of `X`.
         """
-        # use AcquisitionFunction constructor to avoid check for objective
-        super(AnalyticAcquisitionFunction, self).__init__(model=model)
+        _check_noisy_ei_model(model=model)
+        legacy_ei_numerics_warning(legacy_name=type(self).__name__)
+        # Sample fantasies.
+        from botorch.sampling.normal import SobolQMCNormalSampler
+
+        # Drop gradients from model.posterior if X_observed does not require gradients
+        # as otherwise, gradients of the GP's kernel's hyper-parameters are tracked
+        # through the rsample_from_base_sample method of GPyTorchPosterior. These
+        # gradients are usually only required w.r.t. the marginal likelihood.
+        with nullcontext() if X_observed.requires_grad else torch.no_grad():
+            posterior = model.posterior(X=X_observed)
+        sampler = SobolQMCNormalSampler(sample_shape=torch.Size([num_fantasies]))
+        Y_fantasized = sampler(posterior).squeeze(-1)
+        batch_X_observed = X_observed.expand(num_fantasies, *X_observed.shape)
+        # The fantasy model will operate in batch mode
+        fantasy_model = _get_noiseless_fantasy_model(
+            model=model, batch_X_observed=batch_X_observed, Y_fantasized=Y_fantasized
+        )
+        super().__init__(model=fantasy_model, maximize=maximize)
         self.lmbda = lmbda
         self.posterior_transform = posterior_transform
         self.maximize = maximize
@@ -103,10 +112,12 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             A `(b1 x ... bk)`-dim tensor of Gittins Index values at the
             given design points `X`.
         """
-        
+        # add batch dimension for broadcasting to fantasy models
+        X_unsqueezed = X.unsqueeze(-3)
+
         if self.unknown_cost:
             # Handling the unknown cost scenario
-            posterior = self.model.posterior(X)
+            posterior = self.model.posterior(X_unsqueezed)
             means = posterior.mean  # (b) x 2
             vars = posterior.variance.clamp_min(1e-6)  # (b) x 2
             stds = vars.sqrt()
@@ -120,14 +131,14 @@ class GittinsIndex(AnalyticAcquisitionFunction):
 
         else:
             # Handling the known cost scenario
-            mean, sigma = self._mean_and_sigma(X)
+            mean, sigma = self._mean_and_sigma(X_unsqueezed)
 
             if callable(self.cost):
-                cost_X = self.cost(X).view(mean.shape)
+                cost_X = self.cost(X_unsqueezed).view(mean.shape)
             else:
                 cost_X = torch.ones_like(mean)
 
-            gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X, self.bisection_early_stopping)
+            gi_value = GittinsIndexFunction.apply(X_unsqueezed, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X, self.bisection_early_stopping)
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value
