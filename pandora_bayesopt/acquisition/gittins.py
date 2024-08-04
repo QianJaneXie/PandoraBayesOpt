@@ -4,7 +4,7 @@ from typing import Callable, Optional, Union
 import torch
 from torch import Tensor
 from torch.autograd import (Function, grad)
-from botorch.acquisition import AnalyticAcquisitionFunction, ExpectedImprovement
+from botorch.acquisition import AnalyticAcquisitionFunction
 from botorch.models.model import Model
 from botorch.acquisition.analytic import (_scaled_improvement, _ei_helper)
 from botorch.acquisition.objective import PosteriorTransform
@@ -123,15 +123,27 @@ class GittinsIndex(AnalyticAcquisitionFunction):
     `variance` properties). Only supports the case of `q=1`. The model must be
     single-outcome.
 
-    `GI(x) = argmin_g |E(max(f(x) - g, 0))-lmbda|,`
+    `GI(x) = argmin_g |E(max(f(x) - g, 0))-lmbda * c(x)|,`
 
     where the expectation is taken over the value of stochastic function `f` at `x`.
 
     Example:
+        Uniform-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.05)
+        >>> GI = GittinsIndex(model, lmbda=0.0001)
         >>> gi = GI(test_X)
         
+        Varing-cost:
+        >>> def cost_function(x):
+        >>>     return 1+20*x.mean(dim=-1))
+        >>> model = SingleTaskGP(train_X, train_Y)
+        >>> GI = GittinsIndex(model, lmbda=0.0001, cost=cost_function)
+        >>> gi = GI(test_X)
+
+        Unknown-cost:
+        >>> model = SingleTaskGP(train_X, train_Y)
+        >>> GI = GittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
+        >>> gi = GI(test_X)
     """
 
     def __init__(
@@ -152,13 +164,13 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             model: A fitted single-outcome model or a fitted two-outcome model, 
                 where the first output corresponds to the objective 
                 and the second one to the log-cost.
-            lmbda: A scalar representing the Lagrangian multiplier of the budget constraint/cost function.
-            cost: Either a scalar or a `b`-dim Tensor (batch mode) representing
-                the cost function.
+            lmbda: A scalar representing the cost-per-sample or the scaling factor of the cost function.
             posterior_transform: A PosteriorTransform. If using a multi-output model,
                 a PosteriorTransform that transforms the multi-output posterior into a
                 single-output posterior is required.
             maximize: If True, consider the problem a maximization problem.
+            cost: A callable cost function. If None, consider the problem a uniform-cost problem.
+            unknown_cost: If True, consider the problem an unknown-cost problem.
             bound: A `2 x d` tensor of lower and upper bound for each column of `X`.
         """
         # use AcquisitionFunction constructor to avoid check for objective

@@ -42,11 +42,6 @@ def run_bayesopt_experiment(config):
     if config["cost_function_type"] == "mean":
         def cost_function(x):
             return cost_scale_factor*(c_min+x.mean(dim=-1))
-    if config["cost_function_type"] == "periodic":
-        a = torch.tensor([1.1969])
-        b = torch.tensor([1.4694])
-        c = torch.tensor([3.0965])
-        pi = 3.14
 
     if problem == 'Ackley':
         ackley_function = Ackley(dim=dim)
@@ -55,13 +50,6 @@ def run_bayesopt_experiment(config):
             return ackley_function(2*X-1)/objective_scale_factor
         global_optimum_value = 0
 
-        if config["cost_function_type"] == "periodic":
-            def cost_function(X):
-                X_unnorm = (2.0 * X) - 1.0
-                ln_cost_X = a * torch.cos(b * (2 * pi) * (X_unnorm + c)).mean(dim=-1)
-                cost_X = torch.exp(ln_cost_X)
-                return cost_X
-
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
         objective_scale_factor = -100000
@@ -69,26 +57,12 @@ def run_bayesopt_experiment(config):
             return rosenbrock_function(15*X-5)/objective_scale_factor
         global_optimum_value = 0
 
-        if config["cost_function_type"] == "periodic":
-            def cost_function(X):
-                X_unnorm = 15 * X - 5
-                ln_cost_X = a * torch.cos(b * (2 * pi / 7.5) * (X_unnorm + c)).mean(dim=-1)
-                cost_X = torch.exp(ln_cost_X)
-                return cost_X
-
     if problem == 'Levy':
         levy_function = Levy(dim=dim)
         objective_scale_factor = -100
         def objective_function(X):
             return levy_function(20*X-10)/objective_scale_factor
         global_optimum_value = 0
-        
-        if config["cost_function_type"] == "periodic":
-            def cost_function(X):
-                X_unnorm = 20 * X - 10
-                ln_cost_X = a * torch.cos(b * (2 * pi / 10.0) * (X_unnorm + c)).mean(dim=-1)
-                cost_X = torch.exp(ln_cost_X)
-                return cost_X
 
     if draw_initial_method == 'sobol':
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
