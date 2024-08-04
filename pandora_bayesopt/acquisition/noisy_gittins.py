@@ -65,10 +65,17 @@ class NoisyGittinsIndex(GittinsIndex):
                 known observation noise are currently supported.
             X_observed: A `n x d` Tensor of observed points that are likely to
                 be the best observed points so far.
+            lmbda: A scalar representing the cost-per-sample or the scaling factor of the cost function.
             num_fantasies: The number of fantasies to generate. The higher this
                 number the more accurate the model (at the expense of model
                 complexity and performance).
+            posterior_transform: A PosteriorTransform. If using a multi-output model,
+                a PosteriorTransform that transforms the multi-output posterior into a
+                single-output posterior is required.
             maximize: If True, consider the problem a maximization problem.
+            cost: A callable cost function. If None, consider the problem a uniform-cost problem.
+            unknown_cost: If True, consider the problem an unknown-cost problem.
+            bound: A `2 x d` tensor of lower and upper bound for each column of `X`.
         """
         _check_noisy_ei_model(model=model)
         legacy_ei_numerics_warning(legacy_name=type(self).__name__)
