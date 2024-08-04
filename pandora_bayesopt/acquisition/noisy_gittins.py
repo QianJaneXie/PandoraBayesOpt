@@ -13,106 +13,11 @@ from botorch.utils.probability.utils import (
     ndtr as Phi,
     phi,
 )
+from gittins import GittinsIndexFunction, GittinsIndex
+
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
-
-class GittinsIndexFunction(Function):
-    @staticmethod
-        
-    def forward(
-        ctx, 
-        X: Tensor, 
-        mean: Tensor, 
-        sigma: Tensor, 
-        lmbda: float, 
-        maximize: bool, 
-        bound: Tensor, 
-        eps: float, 
-        cost_X: Union[float, Tensor],
-        bisection_early_stopping: bool = False,
-    ):
-
-        def cost_adjusted_expected_improvement(best_f):
-            u = _scaled_improvement(mean, sigma, best_f, maximize)
-            return sigma * _ei_helper(u) - lmbda * cost_X
-
-        size = X.size()[0]
-        l = bound[0]*torch.ones(size)
-        h = bound[1]*torch.ones(size)
-        m = (h + l) / 2
-
-        if maximize:
-            while torch.any(cost_adjusted_expected_improvement(best_f=l) < 0):
-                l = 2 * l
-            while torch.any(cost_adjusted_expected_improvement(best_f=h) > 0):
-                h = 2 * h
-        else:
-            while torch.any(cost_adjusted_expected_improvement(best_f=l) > 0):
-                l = 2 * l
-            while torch.any(cost_adjusted_expected_improvement(best_f=h) < 0):
-                h = 2 * h
-
-        # Bisection method
-        for i in range(100):
-            sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
-            if maximize:
-                l = torch.where(sgn_m >= 0, m, l)
-                h = torch.where(sgn_m <= 0, m, h)
-            else:
-                l = torch.where(sgn_m <= 0, m, l)
-                h = torch.where(sgn_m >= 0, m, h)
-            m = (h + l) / 2
-            # if bisection_early_stopping and torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) <= eps:
-            #     break
-
-        # Save u for backward computation
-        u = _scaled_improvement(mean, sigma, m, maximize)
-        
-        # Save values needed in the backward pass
-        ctx.save_for_backward(X, mean, sigma, u, cost_X)
-        
-        # Save boolean flag directly in ctx
-        ctx.maximize = maximize
-
-        # Save lmbda in ctx for later use in backward
-        ctx.lmbda = lmbda
-            
-        return m
-    
-    @staticmethod
-    def backward(ctx, grad_output):
-                
-        # Retrieve saved tensors
-        X, mean, sigma, u, cost_X = ctx.saved_tensors
-        maximize = ctx.maximize  # Retrieve the boolean flag directly from ctx
-        lmbda = ctx.lmbda  # Retrieve lmbda
-
-                
-        # Gradient of mean function with respect to x
-        dmean_dX = grad(outputs=mean, inputs=X, grad_outputs=torch.ones_like(mean), retain_graph=True, allow_unused=True)[0]
-
-        # Gradient of the std function with respect to x
-        dsigma_dX = grad(outputs=sigma, inputs=X, grad_outputs=torch.ones_like(sigma), retain_graph=True, allow_unused=True)[0]
-
-        if cost_X.requires_grad:
-            # Compute gradient only if cost_X is not a scalar
-            dcost_dX = grad(outputs=cost_X, inputs=X, grad_outputs=torch.ones_like(cost_X), retain_graph=True, allow_unused=True)[0]
-        else:
-            # If cost_X does not require grad, set its gradient to zero
-            dcost_dX = torch.zeros_like(X)
-
-        # Check if gradients are None and handle accordingly
-        if dmean_dX is None or dsigma_dX is None or dcost_dX is None:
-            raise RuntimeError("Gradients could not be computed for one or more components.")
-        
-        # Compute the gradient of the Gittins acquisition function
-        if maximize:
-            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX + (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
-        else:
-            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - (phi(u).unsqueeze(-1).unsqueeze(-1) * dsigma_dX - lmbda * dcost_dX) / Phi(u).unsqueeze(-1).unsqueeze(-1))
-
-        return grad_X, None, None, None, None, None, None, None, None
 
 class GittinsIndex(AnalyticAcquisitionFunction):
     r"""Single-outcome/Two-outcome Gittins Index (analytic).
@@ -120,8 +25,8 @@ class GittinsIndex(AnalyticAcquisitionFunction):
     Computes Gittins index using the analytic formula for a Normal posterior distribution. Unlike the
     MC-based acquisition functions, this relies on the posterior at single test
     point being Gaussian (and require the posterior to implement `mean` and
-    `variance` properties). Only supports the case of `q=1`. The model can be either
-    single-outcome or two-outcome.
+    `variance` properties). Only supports the case of `q=1`. The model must be
+    single-outcome.
 
     `GI(x) = argmin_g |E(max(f(x) - g, 0))-lmbda * c(x)|,`
 
