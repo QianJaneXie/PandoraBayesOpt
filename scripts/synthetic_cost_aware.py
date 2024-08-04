@@ -62,36 +62,6 @@ def run_bayesopt_experiment(config):
                 cost_X = torch.exp(ln_cost_X)
                 return cost_X
 
-    # if problem == 'DropWave_2D':
-    #     dim = 2
-    #     dropwave_function = DropWave()
-    #     objective_scale_factor = -1
-    #     def objective_function(X):
-    #         return dropwave_function(10.24*X-5.12)/objective_scale_factor
-    #     global_optimum_value = -1.0
-
-    #     if config["cost_function_type"] == "periodic":
-    #         def cost_function(X):
-    #             X_unnorm = (X * 10.24) - 5.12 
-    #             ln_cost_X = a * torch.cos(b * (2 * pi / 5.12) * (X_unnorm + c)).mean(dim=-1)
-    #             cost_X = torch.exp(ln_cost_X)
-    #             return cost_X
-
-    # if problem == 'Shekel5_4D':
-    #     dim = 4
-    #     shekel_function = Shekel(m=5)
-    #     objective_scale_factor = -2
-    #     def objective_function(X):
-    #         return shekel_function(10*X)/objective_scale_factor
-    #     global_optimum_value = -10.1532
-
-    #     if config["cost_function_type"] == "periodic":
-    #         def cost_function(X):
-    #             X_unnorm = 10 * X 
-    #             ln_cost_X = a * torch.cos(b * (2 * pi / 5.0) * (X_unnorm + c)).mean(dim=-1)
-    #             cost_X = torch.exp(ln_cost_X)
-    #             return cost_X
-
     if problem == 'Rosenbrock':
         rosenbrock_function = Rosenbrock(dim=dim)
         objective_scale_factor = -100000
