@@ -115,7 +115,7 @@ class GittinsIndexFunction(Function):
         return grad_X, None, None, None, None, None, None, None, None
 
 class GittinsIndex(AnalyticAcquisitionFunction):
-    r"""Single-outcome Gittins Index (analytic).
+    r"""Single-outcome/Two-outcome Gittins Index (analytic).
 
     Computes Gittins index using the analytic formula for a Normal posterior distribution. Unlike the
     MC-based acquisition functions, this relies on the posterior at single test
