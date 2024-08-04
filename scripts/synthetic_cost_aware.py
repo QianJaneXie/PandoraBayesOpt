@@ -30,7 +30,7 @@ def run_bayesopt_experiment(config):
     dim = config['dim']
     seed = config['seed']
     torch.manual_seed(seed)
-    output_standardize = config['output_normalization']
+    output_standardize = config['output_standardize']
     draw_initial_method = config['draw_initial_method']
     policy = config['policy']
     budget = config['budget_to_dimension_ratio']*dim
