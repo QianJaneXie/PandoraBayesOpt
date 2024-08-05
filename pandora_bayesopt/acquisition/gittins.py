@@ -151,7 +151,7 @@ class GittinsIndexFunction(Function):
             u = _scaled_improvement(mean, sigma, best_f, maximize)
             return sigma * _ei_helper(u) - lmbda * cost_X
 
-        size = X.size()[0]
+        size = X.size(0)
         l = bound[0]*torch.ones(size)
         h = bound[1]*torch.ones(size)
         m = (h + l) / 2
