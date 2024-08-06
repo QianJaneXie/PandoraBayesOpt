@@ -4,7 +4,7 @@
 # Extension of the numerical examples presented in Theorem 1 of Raul and Peter's paper which aims to show the limitation of EIpu and EI. The experiment extends the scope from Pandora's box (discrete finite points) to Bayesian optimization (continuous domain) and compares Gittins with EIpu/EI.
 
 import torch
-from pandora_bayesopt.utils import fit_gp_model, create_objective_function, find_global_optimum
+from pandora_bayesopt.utils import create_objective_function
 from gpytorch.kernels import MaternKernel
 from pandora_bayesopt.kernel import VariableAmplitudeKernel
 from botorch.acquisition import ExpectedImprovement
