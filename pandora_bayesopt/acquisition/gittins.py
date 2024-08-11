@@ -59,7 +59,6 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         eps: float = 1e-6,
         cost: Optional[Callable] = None,
         unknown_cost: bool = False,
-        bisection_early_stopping: bool = False
     ):
         r"""Single-outcome/Two-outcome Gittins Index (analytic).
         
@@ -85,7 +84,6 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         self.eps = eps
         self.cost = cost if cost is not None else 1.0
         self.unknown_cost = unknown_cost
-        self.bisection_early_stopping = bisection_early_stopping
       
         
     @t_batch_mode_transform(expected_q=1, assert_output_shape=False)
@@ -144,7 +142,6 @@ class GittinsIndexFunction(Function):
         bound: Tensor, 
         eps: float, 
         cost_X: Union[float, Tensor],
-        bisection_early_stopping: bool = False,
     ):
 
         def cost_adjusted_expected_improvement(best_f):
@@ -168,7 +165,7 @@ class GittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
-        for i in range(100):
+        for i in range(20):
             sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
             if maximize:
                 l = torch.where(sgn_m >= 0, m, l)
@@ -177,8 +174,6 @@ class GittinsIndexFunction(Function):
                 l = torch.where(sgn_m <= 0, m, l)
                 h = torch.where(sgn_m >= 0, m, h)
             m = (h + l) / 2
-            # if bisection_early_stopping and torch.max(torch.abs(cost_adjusted_expected_improvement(best_f=m))) <= eps:
-            #     break
 
         # Save u for backward computation
         u = _scaled_improvement(mean, sigma, m, maximize)
