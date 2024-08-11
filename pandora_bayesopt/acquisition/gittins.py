@@ -165,7 +165,7 @@ class GittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
-        for i in range(20):
+        for i in range(100):
             sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
             if maximize:
                 l = torch.where(sgn_m >= 0, m, l)
