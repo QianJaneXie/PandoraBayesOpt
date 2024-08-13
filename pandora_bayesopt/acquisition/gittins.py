@@ -112,7 +112,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
 
             mgf = (torch.exp(means[..., 1]) + 0.5 * vars[..., 1]).squeeze(dim=-1)
 
-            gi_value = GittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, mgf, self.bisection_early_stopping)
+            gi_value = GittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, mgf)
 
         else:
             # Handling the known cost scenario
@@ -123,7 +123,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             else:
                 cost_X = torch.ones_like(mean)
 
-            gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X, self.bisection_early_stopping)
+            gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X)
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value
