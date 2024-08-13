@@ -30,12 +30,15 @@ class BayesianOptimizer:
                  objective: Optional[Callable] = None, 
                  cost: Optional[Callable] = None, 
                  objective_cost: Optional[Callable] = None, 
-                 output_standardize: bool = False, 
-                 kernel: Optional[torch.nn.Module] = None
+                 kernel: Optional[torch.nn.Module] = None,
+                 noisy_observation: bool = False,
+                 noise_level: Optional[float] = 0.1,
+                 output_standardize: bool = False,
                 ):
         self.validate_functions(objective, objective_cost)
-        self.initialize_attributes(objective, cost, objective_cost, dim, maximize, initial_points, output_standardize, kernel)
-    
+        self.initialize_attributes(objective, cost, objective_cost, dim, maximize, initial_points, kernel, noisy_observation, noise_level, output_standardize)
+
+
     def validate_functions(self, objective, objective_cost):
         # Make sure that the objective function and the cost function are passed in the correct form
         if objective_cost is None and objective is None:
@@ -43,8 +46,9 @@ class BayesianOptimizer:
         if objective is not None and objective_cost is not None:
             raise ValueError("Only one of 'objective' or 'objective_cost' can be provided.")
         self.unknown_cost = callable(objective_cost)
-    
-    def initialize_attributes(self, objective, cost, objective_cost, dim, maximize, initial_points, output_standardize, kernel):
+
+
+    def initialize_attributes(self, objective, cost, objective_cost, dim, maximize, initial_points, kernel, noisy_observation, noise_level, output_standardize):
         self.objective = objective
         self.cost = cost if cost is not None else self.DEFAULT_COST
         self.objective_cost = objective_cost
@@ -57,12 +61,15 @@ class BayesianOptimizer:
         self.cost_history = [0.0]
         self.acq_history = [np.nan]
         self.runtime_history = []
-        self.initialize_points(initial_points)
-        self.suggested_x_full_tree = None
 
         # GP model parameters
-        self.output_standardize = output_standardize
         self.kernel = kernel
+        self.noisy_observation = noisy_observation
+        self.noise_level = noise_level
+        self.output_standardize = output_standardize
+        
+        self.suggested_x_full_tree = None
+        self.initialize_points(initial_points)
 
     def initialize_points(self, initial_points):
         self.x = initial_points
@@ -74,15 +81,21 @@ class BayesianOptimizer:
                 self.c = self.DEFAULT_COST
         if callable(self.objective_cost):
             self.y, self.c = self.objective_cost(initial_points)
+        if self.noisy_observation:
+            noise = torch.randn_like(self.y) * self.noise_level
+            self.y += noise
         self.acq_history.append(self.best_f)  # make sure the length of acq_history is the same as best_history
         self.update_best()
+
 
     def update_best(self):
         self.best_f = self.y.max().item() if self.maximize else self.y.min().item()
         self.best_history.append(self.best_f)
 
+
     def iterate(self, acquisition_function_class, **acqf_kwargs):
         
+        is_rs = False
         is_ms = False
         is_ts = False
         is_pes = False
@@ -91,32 +104,27 @@ class BayesianOptimizer:
             gaussian_likelihood = True
         else:
             gaussian_likelihood = False
-
         
         if acquisition_function_class == "RandomSearch":
+            is_rs = True
             new_point = torch.rand(1, self.dim)
             
         else:
             if acquisition_function_class in (ExpectedImprovementWithCost, GittinsIndex, BudgetedMultiStepLookaheadEI):
-                model = fit_gp_model(
-                    X=self.x.detach(), 
-                    objective_X=self.y.detach(), 
-                    cost_X=self.c.detach(), 
-                    unknown_cost=self.unknown_cost,  
-                    gaussian_likelihood=gaussian_likelihood,
-                    output_standardize=self.output_standardize,
-                    kernel=self.kernel
-                )
+                unknown_cost = self.unknown_cost
             else:
-                model = fit_gp_model(
-                    X=self.x.detach(), 
-                    objective_X=self.y.detach(), 
-                    cost_X=self.c.detach(), 
-                    unknown_cost=False,  
-                    gaussian_likelihood=gaussian_likelihood,
-                    output_standardize=self.output_standardize,
-                    kernel=self.kernel
-                )
+                unknown_cost = False
+
+            model = fit_gp_model(
+                X=self.x.detach(), 
+                objective_X=self.y.detach(), 
+                cost_X=self.c.detach(), 
+                unknown_cost=unknown_cost,
+                kernel=self.kernel,
+                gaussian_likelihood=gaussian_likelihood,
+                noisy_observation=self.noisy_observation,
+                output_standardize=self.output_standardize,
+            )
 
             acqf_args = {'model': model}
         
@@ -154,9 +162,6 @@ class BayesianOptimizer:
             
             if acquisition_function_class == GittinsIndex:
                 acqf_args['maximize'] = self.maximize
-                
-                if acqf_kwargs.get('bisection_early_stopping') == True:
-                    acqf_args['bisection_early_stopping'] = acqf_kwargs['bisection_early_stopping']
                 
                 if acqf_kwargs.get('step_EIpu') == True:
                     if self.need_lmbda_update:
@@ -256,7 +261,6 @@ class BayesianOptimizer:
                 acqf_args.update(**acqf_kwargs)
 
 
-            
             if is_ts == False and is_pes == False:
                 acq_function = acquisition_function_class(**acqf_args)
                 if self.suggested_x_full_tree is not None:
@@ -307,12 +311,17 @@ class BayesianOptimizer:
             new_value, new_cost = self.objective_cost(new_point.detach())
         else: 
             new_value = self.objective(new_point.detach())
+
+        if self.noisy_observation:
+            noise = torch.randn_like(new_value) * self.noise_level
+            new_value += noise
+
         self.x = torch.cat((self.x, new_point.detach()))
         self.y = torch.cat((self.y, new_value.detach()))
         self.update_best()
         self.update_cost(new_point)
 
-        if acquisition_function_class == "RandomSearch":
+        if is_rs:
             self.current_acq = new_value.item()
 
         self.acq_history.append(self.current_acq)
@@ -339,6 +348,7 @@ class BayesianOptimizer:
 
         self.cost_history.append(self.cumulative_cost)
 
+
     def print_iteration_info(self, iteration):
         print(f"Iteration {iteration}, New point: {self.x[-1].squeeze().detach().numpy()}, New value: {self.y[-1].detach().numpy()}")
         print("Best observed value:", self.best_f)
@@ -348,6 +358,7 @@ class BayesianOptimizer:
             print("Gittins lmbda:", self.lmbda_history[-1])
         print("Running time:", self.runtime)
         print()
+
 
     def run(self, num_iterations, acquisition_function_class, **acqf_kwargs):
         self.budget = num_iterations
@@ -369,6 +380,7 @@ class BayesianOptimizer:
             self.runtime = runtime
             self.runtime_history.append(runtime)
             self.print_iteration_info(i)
+
 
     def run_until_budget(self, budget, acquisition_function_class, **acqf_kwargs):
         self.budget = budget
@@ -393,17 +405,22 @@ class BayesianOptimizer:
             self.print_iteration_info(i)
             i += 1
 
+
     def get_best_value(self):
         return self.best_f
+
 
     def get_best_history(self):
         return self.best_history
 
+
     def get_cumulative_cost(self):
         return self.cumulative_cost
 
+
     def get_cost_history(self):
         return self.cost_history
+
 
     def get_regret_history(self, global_optimum):
         """
@@ -417,11 +434,14 @@ class BayesianOptimizer:
         """
         return [global_optimum - f if self.maximize else f - global_optimum for f in self.best_history]
 
+
     def get_lmbda_history(self):
         return self.lmbda_history
-    
+
+
     def get_acq_history(self):
         return self.acq_history
-    
+
+
     def get_runtime_history(self):
         return self.runtime_history
