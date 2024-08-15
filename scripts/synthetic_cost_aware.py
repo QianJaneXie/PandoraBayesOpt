@@ -10,6 +10,7 @@ from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
+from botorch.acquisition.max_value_entropy_search import qMultiFidelityMaxValueEntropy
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
 import matplotlib.pyplot as plt
@@ -104,6 +105,11 @@ def run_bayesopt_experiment(config):
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=BudgetedMultiStepLookaheadEI
+        )
+    elif policy == 'MultiFidelityMaxValueEntropy':
+        Optimizer.run_until_budget(
+            budget=budget, 
+            acquisition_function_class=qMultiFidelityMaxValueEntropy
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
