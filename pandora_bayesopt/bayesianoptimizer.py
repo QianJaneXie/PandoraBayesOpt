@@ -12,8 +12,7 @@ from .acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from botorch.sampling.pathwise import draw_matheron_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
-from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
-from botorch.acquisition.max_value_entropy_search import qMultiFidelityMaxValueEntropy
+from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy,qMultiFidelityMaxValueEntropy
 from botorch.acquisition.cost_aware import InverseCostWeightedUtility
 from botorch.models.deterministic import GenericDeterministicModel
 from botorch.optim import optimize_acqf
@@ -242,35 +241,32 @@ class BayesianOptimizer:
                     acqf_args['cost_exponent'] = cost_exponent
 
 
-            elif acquisition_function_class == qMultiFidelityMaxValueEntropy:
+            elif acquisition_function_class in (qMaxValueEntropy, qMultiFidelityMaxValueEntropy):
                 candidate_set = torch.rand(1000*self.dim, self.bounds.size(1))
                 candidate_set = self.bounds[0] + (self.bounds[1] - self.bounds[0]) * candidate_set
-                cost_function = self.cost
-                class CostModel(GenericDeterministicModel):
-                    def __init__(self):
-                        super().__init__(f=cost_function)
-                cost_model = CostModel()
-                cost_aware_utility = InverseCostWeightedUtility(cost_model=cost_model)
                 acqf_args['candidate_set'] = candidate_set
-                acqf_args['cost_aware_utility'] = cost_aware_utility
+
+                if acquisition_function_class == qMultiFidelityMaxValueEntropy:
+                    cost_function = copy(self.cost)
+                    class CostModel(GenericDeterministicModel):
+                        def __init__(self):
+                            super().__init__(f=cost_function)
+                    cost_model = CostModel()
+                    cost_aware_utility = InverseCostWeightedUtility(cost_model=cost_model)
+                    acqf_args['cost_aware_utility'] = cost_aware_utility
 
 
-            elif acquisition_function_class == MultiStepLookaheadEI:
+            elif acquisition_function_class in (MultiStepLookaheadEI, BudgetedMultiStepLookaheadEI):
                 is_ms = True
                 acqf_args['batch_size'] = 1
                 acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
                 acqf_args['num_fantasies'] = [1, 1, 1]
                 
-            
-            elif acquisition_function_class == BudgetedMultiStepLookaheadEI:
-                is_ms = True
-                acqf_args['cost_function'] = copy(self.cost)
-                acqf_args['unknown_cost'] = self.unknown_cost
-                acqf_args['budget_plus_cumulative_cost'] = min(self.budget - self.cumulative_cost, self.c[-4:].sum().item()) + self.c.sum().item()
-                print(acqf_args['budget_plus_cumulative_cost'])
-                acqf_args['batch_size'] = 1
-                acqf_args['lookahead_batch_sizes'] = [1, 1, 1]
-                acqf_args['num_fantasies'] = [1, 1, 1]
+                if acquisition_function_class == BudgetedMultiStepLookaheadEI:
+                    acqf_args['cost_function'] = copy(self.cost)
+                    acqf_args['unknown_cost'] = self.unknown_cost
+                    acqf_args['budget_plus_cumulative_cost'] = min(self.budget - self.cumulative_cost, self.c[-4:].sum().item()) + self.c.sum().item()
+                    print(acqf_args['budget_plus_cumulative_cost'])
                 
             
             else:
@@ -406,7 +402,7 @@ class BayesianOptimizer:
                 self.need_lmbda_update = True
                 self.lmbda_history = []
             if acqf_kwargs.get('step_divide') == True:
-                self.current_lmbda = 0.1
+                self.current_lmbda = acqf_kwargs['init_lmbda']
                 self.need_lmbda_update = False
                 self.lmbda_history = []  
 

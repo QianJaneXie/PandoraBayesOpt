@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 
 import torch
-from pandora_bayesopt.utils import fit_gp_model
 from botorch.models import SingleTaskGP
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
-from gpytorch.means import ConstantMean
 from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
+from botorch.sampling.pathwise import draw_kernel_feature_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
+from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
 import numpy as np
-import matplotlib.pyplot as plt
 import wandb
 
 # use a GPU if available
@@ -148,6 +146,11 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=qPredictiveEntropySearch
         )
+    elif policy == 'MaxValueEntropy':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=qMaxValueEntropy
+        )
     elif policy == 'KnowledgeGradient':
         Optimizer.run(
             num_iterations=num_iterations, 
@@ -176,32 +179,13 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'Gittins_Step_Divide2':
+    elif policy == 'GittinsDecay_InitLambda_0001':
         Optimizer.run(
-            num_iterations=num_iterations, 
+            num_iterations=num_iterations,
             acquisition_function_class=GittinsIndex,
             step_divide = True,
+            init_lmbda = 0.0001,
             alpha = 2
-        )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()

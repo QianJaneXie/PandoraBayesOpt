@@ -7,10 +7,10 @@ from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
+from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
-import matplotlib.pyplot as plt
 import wandb
 
 
@@ -91,6 +91,11 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=qPredictiveEntropySearch
         )
+    elif policy == 'MaxValueEntropy':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=qMaxValueEntropy
+        )
     elif policy == 'KnowledgeGradient':
         Optimizer.run(
             num_iterations=num_iterations, 
@@ -119,50 +124,33 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'Gittins_Step_Divide2':
+    elif policy == 'GittinsDecay_InitLambda_0001':
         Optimizer.run(
-            num_iterations=num_iterations, 
+            num_iterations=num_iterations,
             acquisition_function_class=GittinsIndex,
             step_divide = True,
+            init_lmbda = 0.0001,
             alpha = 2
-        )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
         )
     
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     regret_history = Optimizer.get_regret_history(global_optimum_value/scale_factor)
+    acq_history = Optimizer.get_acq_history()
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
     print("Regret history:", regret_history)
+    print("Acquisition history:", acq_history)
 
     print()
 
-    return (scale_factor, cost_history, best_history, regret_history)
+    return (scale_factor, cost_history, best_history, regret_history, acq_history)
 
 wandb.init()
-(scale_factor, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(scale_factor, cost_history, best_history, regret_history, acq_history) = run_bayesopt_experiment(wandb.config)
 
-for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"cumulative cost": cost, "best observed": scale_factor*best, "regret": -scale_factor*regret, "lg(regret)":np.log10(-scale_factor)+np.log10(regret)})
+for cost, best, regret, acq in zip(cost_history, best_history, regret_history, acq_history):
+    wandb.log({"cumulative cost": cost, "best observed": scale_factor*best, "regret": -scale_factor*regret, "lg(regret)":np.log10(-scale_factor)+np.log10(regret), "acq":acq})
 
 wandb.finish()

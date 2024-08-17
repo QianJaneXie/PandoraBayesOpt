@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
 import torch
-from pandora_bayesopt.utils import fit_gp_model
 from botorch.models import SingleTaskGP
 from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
-from gpytorch.means import ConstantMean
 from gpytorch.kernels import MaternKernel, RBFKernel, ScaleKernel
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.sampling.pathwise import draw_matheron_paths, draw_kernel_feature_paths
+from botorch.sampling.pathwise import draw_kernel_feature_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
+from botorch.acquisition.max_value_entropy_search import qMultiFidelityMaxValueEntropy
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
 import numpy as np
-import matplotlib.pyplot as plt
 import wandb
 from scipy.interpolate import interp1d
 
@@ -144,6 +142,11 @@ def run_bayesopt_experiment(config):
         Optimizer.run_until_budget(
             budget=budget, 
             acquisition_function_class=BudgetedMultiStepLookaheadEI
+        )
+    elif policy == 'MultiFidelityMaxValueEntropy':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = qMultiFidelityMaxValueEntropy
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(

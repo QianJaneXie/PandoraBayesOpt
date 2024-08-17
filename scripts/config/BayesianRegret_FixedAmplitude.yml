@@ -19,16 +19,14 @@ parameters:
   policy:
     values:
       - RandomSearch
-      - ExpectedImprovement
       - ThompsonSampling
       - UpperConfidenceBound
-      # - PredictiveEntropySearch
-      - KnowledgeGradient
-      - MultiStepLookaheadEI
+      - ExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
-      - Gittins_Step_Divide2
-      - Gittins_Step_Divide5
-      - Gittins_Step_Divide10
-      - Gittins_Step_EIpu
+      - GittinsDecay_InitLambda_0001
+      - MaxValueEntropy
+      - PredictiveEntropySearch
+      - KnowledgeGradient
+      - MultiStepLookaheadEI

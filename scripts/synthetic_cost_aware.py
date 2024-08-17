@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import os
-import sys
-import scipy.io
 import torch
-from botorch.test_functions.synthetic import Ackley, DropWave, Shekel, Rosenbrock, Levy
+from botorch.test_functions.synthetic import Ackley, Rosenbrock, Levy
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
@@ -13,7 +10,6 @@ from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiSte
 from botorch.acquisition.max_value_entropy_search import qMultiFidelityMaxValueEntropy
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
-import matplotlib.pyplot as plt
 import wandb
 from scipy.interpolate import interp1d
 
@@ -82,13 +78,13 @@ def run_bayesopt_experiment(config):
     )
     if policy == 'RandomSearch':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class="RandomSearch"
+            budget = budget, 
+            acquisition_function_class = "RandomSearch"
         )
     if policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovement
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovement
         )
     elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
@@ -103,13 +99,13 @@ def run_bayesopt_experiment(config):
         )
     elif policy == 'BudgetedMultiStepLookaheadEI':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=BudgetedMultiStepLookaheadEI
+            budget = budget, 
+            acquisition_function_class = BudgetedMultiStepLookaheadEI
         )
     elif policy == 'MultiFidelityMaxValueEntropy':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=qMultiFidelityMaxValueEntropy
+            budget = budget, 
+            acquisition_function_class = qMultiFidelityMaxValueEntropy
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
@@ -129,49 +125,32 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'Gittins_Step_Divide2':
+    elif policy == 'GittinsDecay_InitLambda_0001':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class=GittinsIndex,
             step_divide = True,
+            init_lmbda = 0.0001,
             alpha = 2
-        )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     regret_history = Optimizer.get_regret_history(global_optimum_value/objective_scale_factor)
+    acq_history = Optimizer.get_acq_history()
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
     print("Regret history:", regret_history)
+    print("Acquisition history:", acq_history)
     print()
 
-    return (budget, objective_scale_factor, cost_history, best_history, regret_history)
+    return (budget, objective_scale_factor, cost_history, best_history, regret_history, acq_history)
 
 wandb.init()
-(budget, objective_scale_factor, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, objective_scale_factor, cost_history, best_history, regret_history, acq_history) = run_bayesopt_experiment(wandb.config)
 
-for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": objective_scale_factor*best, "raw regret": -objective_scale_factor*regret, "raw log(regret)":np.log10(-objective_scale_factor)+np.log10(regret)})
+for cost, best, regret, acq in zip(cost_history, best_history, regret_history, acq_history):
+    wandb.log({"raw cumulative cost": cost, "raw best observed": objective_scale_factor*best, "raw regret": -objective_scale_factor*regret, "raw log(regret)":np.log10(-objective_scale_factor)+np.log10(regret), "acq": acq})
 
 interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
