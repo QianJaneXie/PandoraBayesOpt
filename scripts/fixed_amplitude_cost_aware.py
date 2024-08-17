@@ -166,51 +166,34 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'Gittins_Step_Divide2':
+    elif policy == 'GittinsDecay_InitLambda_0001':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class=GittinsIndex,
             step_divide = True,
+            init_lmbda = 0.0001,
             alpha = 2
-        )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run_until_budget(
-            budget = budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
         )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     regret_history = Optimizer.get_regret_history(global_optimum_value.item())
+    acq_history = Optimizer.get_acq_history()
 
     print("Cost history:", cost_history)
     print("Best history:", best_history)
     print("Regret history:", regret_history)
+    print("Acq history:", acq_history)
     print()
 
-    return (budget, global_optimum_value.item(), cost_history, best_history, regret_history)
+    return (budget, global_optimum_value.item(), cost_history, best_history, regret_history, acq_history)
 
 wandb.init()
-(budget, global_optimum_value, cost_history, best_history, regret_history) = run_bayesopt_experiment(wandb.config)
+(budget, global_optimum_value, cost_history, best_history, regret_history, acq_history) = run_bayesopt_experiment(wandb.config)
 
 wandb.log({"global optimum value": global_optimum_value})
 
-for cost, best, regret in zip(cost_history, best_history, regret_history):
-    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log10(regret)})
+for cost, best, regret, acq in zip(cost_history, best_history, regret_history, acq_history):
+    wandb.log({"raw cumulative cost": cost, "raw best observed": best, "raw regret": regret, "raw log(regret)":np.log10(regret), "acquisition value":acq})
 
 interp_cost = np.linspace(0, budget, num=budget+1)
 interp_func_best = interp1d(cost_history, best_history, kind='linear', bounds_error=False, fill_value="extrapolate")
