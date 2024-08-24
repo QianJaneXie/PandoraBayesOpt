@@ -10,6 +10,7 @@ from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
+from botorch.acquisition.max_value_entropy_search import qMultiFidelityMaxValueEntropy
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
 import wandb
@@ -29,11 +30,13 @@ def run_bayesopt_experiment(config):
 
     if problem == "LunarLander":
         dim = 12
+        budget = 3200
         def objective_cost_function(X):
             return LunarLanderProblem()(X)
 
     if problem == "PestControl":
         dim = 25
+        budget = 800
         def objective_function(X):
             choice_X = torch.floor(5*X)
             choice_X[choice_X == 5] = 4
@@ -41,13 +44,14 @@ def run_bayesopt_experiment(config):
         def cost_function(X):
             choice_X = torch.floor(5*X)
             choice_X[choice_X == 5] = 4
-            res = torch.stack([pest_control_price(x) for x in choice_X]).to(choice_X)
+            res = torch.stack([pest_control_price(x) for x in choice_X]).to(choice_X).unsqueeze(0)
             # Add a small amount of noise to prevent training instabilities
             res += 1e-6 * torch.randn_like(res)
             return res 
 
     if problem == "RobotPushing4D":
         dim = 4
+        budget = 200
         target_location = torch.tensor([-4.4185, -4.3709])
         def unnorm_X(X: torch.Tensor) -> torch.Tensor:
             X_unnorm = X.clone()
@@ -81,11 +85,12 @@ def run_bayesopt_experiment(config):
         def cost_function(X: torch.Tensor) -> torch.Tensor:
             X_unnorm = unnorm_X(X)
 
-            return X_unnorm[:, 2]
+            return X_unnorm[:, 2].unsqueeze(0)
         
     if problem == "RobotPushing14D":
         cost_function_type = config["cost_function_type"]
         dim = 14
+        budget = 800
         target_location = torch.tensor([-4.4185, -4.3709])
         target_location2 = torch.tensor([-3.7641, -4.4742])
         def unnorm_X(X: torch.Tensor) -> torch.Tensor:
@@ -128,12 +133,12 @@ def run_bayesopt_experiment(config):
         if cost_function_type == "mean":
             def cost_function(X: torch.Tensor) -> torch.Tensor:
                 X_unnorm = unnorm_X(X)
-                return (X_unnorm[:, 4] + X_unnorm[:, 10]) / 2
+                return (X_unnorm[:, 4] + X_unnorm[:, 10]).unsqueeze(0) / 2
 
         if cost_function_type == "max":
             def cost_function(X: torch.Tensor) -> torch.Tensor:
                 X_unnorm = unnorm_X(X)
-                return torch.max(X_unnorm[:, 4], X_unnorm[:, 10])
+                return torch.max(X_unnorm[:, 4], X_unnorm[:, 10]).unsqueeze(0)
             
         if cost_function_type == 'unknown':
             def objective_cost_function(X: torch.Tensor) -> torch.Tensor:
@@ -163,7 +168,6 @@ def run_bayesopt_experiment(config):
         bounds = torch.stack([torch.zeros(dim), torch.ones(dim)])
         init_x = draw_sobol_samples(bounds=bounds, n=1, q=2*(dim+1)).squeeze(0)
     output_standardize = config['output_standardize']
-    budget = config['budget']
     maximize = True
 
     # Test performance of different policies
@@ -208,6 +212,11 @@ def run_bayesopt_experiment(config):
             acquisition_function_class=ExpectedImprovementWithCost,
             cost_cooling=True
         )
+    elif policy == 'MultiFidelityMaxValueEntropy':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = qMultiFidelityMaxValueEntropy
+        )
     elif policy == 'BudgetedMultiStepLookaheadEI':
         Optimizer.run_until_budget(
             budget=budget, 
@@ -231,33 +240,7 @@ def run_bayesopt_experiment(config):
             acquisition_function_class=GittinsIndex,
             lmbda=0.0001
         )
-    elif policy == 'Gittins_Step_Divide2':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide=True,
-            alpha=2
-        )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide=True,
-            alpha=5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide=True,
-            alpha=10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
-        )
+
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     runtime_history = Optimizer.get_runtime_history()

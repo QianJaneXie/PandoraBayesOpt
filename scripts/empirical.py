@@ -5,12 +5,12 @@ from pandora_bayesopt.test_functions.pest_control import PestControl
 from pandora_bayesopt.test_functions.robot_pushing.robot_pushing import robot_pushing_3d, robot_pushing_4d, robot_pushing_14d
 
 import torch
-from typing import Dict
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.predictive_entropy_search import qPredictiveEntropySearch
+from botorch.acquisition.max_value_entropy_search import qMaxValueEntropy
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
@@ -165,6 +165,11 @@ def run_bayesopt_experiment(config):
             num_iterations=num_iterations, 
             acquisition_function_class=qPredictiveEntropySearch
         )
+    elif policy == 'MaxValueEntropy':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=qMaxValueEntropy
+        )
     elif policy == 'KnowledgeGradient':
         Optimizer.run(
             num_iterations=num_iterations, 
@@ -193,33 +198,6 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
-    elif policy == 'Gittins_Step_Divide2':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 2
-        )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run(
-            num_iterations=num_iterations, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
-        )
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     runtime_history = Optimizer.get_runtime_history()
@@ -231,7 +209,7 @@ def run_bayesopt_experiment(config):
 
     return cost_history, best_history, runtime_history
 
-wandb.init(resume=True)
+wandb.init()
 
 cost_history, best_history, runtime_history = run_bayesopt_experiment(wandb.config)
 
