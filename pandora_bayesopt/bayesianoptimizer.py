@@ -78,7 +78,7 @@ class BayesianOptimizer:
         if callable(self.objective):
             self.y = self.objective(initial_points)
             if callable(self.cost):
-                self.c = self.cost(initial_points)
+                self.c = self.cost(initial_points).view(-1)
             else:
                 self.c = self.DEFAULT_COST
         if callable(self.objective_cost):
@@ -86,7 +86,6 @@ class BayesianOptimizer:
         if self.noisy_observation:
             noise = torch.randn_like(self.y) * self.noise_level
             self.y += noise
-        self.acq_history.append(self.best_f)  # make sure the length of acq_history is the same as best_history
         self.update_best()
 
 
@@ -347,9 +346,9 @@ class BayesianOptimizer:
     def update_cost(self, new_point):
         if callable(self.cost):
             # If self.cost is a function, call it and update cumulative cost
-            new_cost = self.cost(new_point)
+            new_cost = self.cost(new_point).view(-1)
             self.c = torch.cat((self.c, new_cost))
-            self.cumulative_cost += new_cost.sum().item()
+            self.cumulative_cost += new_cost.item()
         elif callable(self.objective_cost):
             new_value, new_cost = self.objective_cost(new_point)
             self.c = torch.cat((self.c, new_cost))
