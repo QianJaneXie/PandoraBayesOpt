@@ -1,0 +1,32 @@
+name: LmbdaImpact
+program: scripts/impact_of_lmbda.py
+method: grid
+parameters:
+  dim:
+    values: [8]
+  kernel:
+    values: ["Matern52"]
+  lengthscale:
+    values: [0.1]
+  amplitude:
+    values: [1.0]
+  seed:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+  output_standardize:
+    value: false
+  draw_initial_method:
+    values: ['sobol']
+  policy:
+    values:
+      - Gittins_Lmbda_1_Step_Divide2
+      - Gittins_Lmbda_1_Step_Divide10
+      - Gittins_Lmbda_1_Step_Divide100
+      - Gittins_Lmbda_01_Step_Divide2
+      - Gittins_Lmbda_01_Step_Divide10
+      - Gittins_Lmbda_01_Step_Divide100
+      - Gittins_Lmbda_001_Step_Divide2
+      - Gittins_Lmbda_001_Step_Divide10
+      - Gittins_Lmbda_001_Step_Divide100
+      - Gittins_Lmbda_0001_Step_Divide2
+      - Gittins_Lmbda_0001_Step_Divide10
+      - Gittins_Lmbda_0001_Step_Divide100
