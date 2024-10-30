@@ -211,6 +211,7 @@ class BayesianOptimizer:
 
                 else: 
                     acqf_args['lmbda'] = acqf_kwargs['lmbda']
+                    self.lmbda_history.append(acqf_kwargs['lmbda'])
 
                 acqf_args['cost'] = self.cost
                 acqf_args['unknown_cost'] = self.unknown_cost
@@ -374,14 +375,14 @@ class BayesianOptimizer:
     def run(self, num_iterations, acquisition_function_class, **acqf_kwargs):
         self.budget = num_iterations
         if acquisition_function_class == GittinsIndex:
+            self.lmbda_history = []
             if acqf_kwargs.get('step_EIpu') == True:
                 self.current_lmbda = None
                 self.need_lmbda_update = True
-                self.lmbda_history = []
             if acqf_kwargs.get('step_divide') == True:
                 self.current_lmbda = acqf_kwargs['init_lmbda']
                 self.need_lmbda_update = False
-                self.lmbda_history = []                
+                                
 
         for i in range(num_iterations):
             start = time.process_time()
@@ -396,14 +397,13 @@ class BayesianOptimizer:
     def run_until_budget(self, budget, acquisition_function_class, **acqf_kwargs):
         self.budget = budget
         if acquisition_function_class == GittinsIndex:
+            self.lmbda_history = []
             if acqf_kwargs.get('step_EIpu') == True:
                 self.current_lmbda = None
                 self.need_lmbda_update = True
-                self.lmbda_history = []
             if acqf_kwargs.get('step_divide') == True:
                 self.current_lmbda = acqf_kwargs['init_lmbda']
                 self.need_lmbda_update = False
-                self.lmbda_history = []  
 
         i = 0
         while self.cumulative_cost < self.budget:
