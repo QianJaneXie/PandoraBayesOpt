@@ -1,10 +1,10 @@
 # Cost-aware Bayesian optimization via the Pandora's box Gittins index
-This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variants. The policies are compared against various baselines in the context of uniform-cost and cost-aware Bayesian Optimization.
+This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variants. The policies are compared against various baselines in the context of uniform-cost and varying-cost Bayesian Optimization.
 
 ## Policies
 - **Our Policies**:
   - Pandora's box Gittins index (PBGI)*
-  - Pandora's box Gittins index with dynamic decay (PBGI-D)*
+  - Pandora's box Gittins index with adaptive decay (PBGI-D)*
 - **Baselines**:
   - Uniform-cost Bayesian optimization:
     - Random search (RS)*
@@ -13,9 +13,11 @@ This repository contains the implementation of the Pandora's box Gittins index (
     - Expected improvement (EI)*
     - Knowledge gradient (KG)
     - Multi-step lookahead EI (MSEI)
+    - Max-value Entropy Search (MES)
   - Varying-cost Bayesian Optimization
     - Expected improvement per unit cost (EIPC)
     - Budgeted multi-step lookahead EI (BMSEI)
+    - Multi-fidelity Max-value Entropy Search (MF-MES)
  
 *Note: PBGI, PBGI-D, RS, and EI were also run for varying-cost Bayesian optimization.
 
@@ -29,7 +31,8 @@ The implementation of PBGI, EIPC, MSEI, and BMSEI can be found in `pandora_bayes
   - Timing
 - **Illustrations**
   - EI/EIPC poor performance (via Bayesian-regret variable-amplitude)
-  - Impact of lambda
+  - Impact of lambda (cost-scaling factor of PBGI)
+  - Impact of initial lambda and beta (constant adaptive decay factor of PBGI-D)
  
 The empirical objective functions we used in our experiments can be found in `pandora_bayesopt/test_functions`.
  
