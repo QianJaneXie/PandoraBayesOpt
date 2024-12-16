@@ -13,11 +13,11 @@ This repository contains the implementation of the Pandora's box Gittins index (
     - Expected improvement (EI)*
     - Knowledge gradient (KG)
     - Multi-step lookahead EI (MSEI)
-  - Cost-aware Bayesian Optimization
+  - Varying-cost Bayesian Optimization
     - Expected improvement per unit cost (EIPC)
     - Budgeted multi-step lookahead EI (BMSEI)
  
-*Note: PBGI, PBGI-D, RS, and EI were also run for cost-aware Bayesian optimization.
+*Note: PBGI, PBGI-D, RS, and EI were also run for varying-cost Bayesian optimization.
 
 The implementation of PBGI, EIPC, MSEI, and BMSEI can be found in `pandora_bayesopt/acquisition`. The Bayesian optimization process with these policies can be found in the class BayesianOptimizer in `pandora_bayesopt/bayesianoptimizer.py`.
  
