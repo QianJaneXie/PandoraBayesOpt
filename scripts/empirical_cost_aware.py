@@ -193,24 +193,24 @@ def run_bayesopt_experiment(config):
         )
     if policy == 'RandomSearch':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class="RandomSearch"
+            budget = budget, 
+            acquisition_function_class = "RandomSearch"
         )
     if policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovement
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovement
         )
     elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovementWithCost
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovementWithCost
         )
     elif policy == 'ExpectedImprovementWithCostCooling':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovementWithCost,
-            cost_cooling=True
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovementWithCost,
+            cost_cooling = True
         )
     elif policy == 'MultiFidelityMaxValueEntropy':
         Optimizer.run_until_budget(
@@ -219,26 +219,26 @@ def run_bayesopt_experiment(config):
         )
     elif policy == 'BudgetedMultiStepLookaheadEI':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=BudgetedMultiStepLookaheadEI
+            budget = budget, 
+            acquisition_function_class = BudgetedMultiStepLookaheadEI
         )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            lmbda=0.01
+            budget = budget, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.01
         )
     elif policy == 'Gittins_Lambda_001':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            lmbda=0.001
+            budget = budget, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.001
         )
     elif policy == 'Gittins_Lambda_0001':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            lmbda=0.0001
+            budget = budget, 
+            acquisition_function_class = GittinsIndex,
+            lmbda = 0.0001
         )
 
     cost_history = Optimizer.get_cost_history()

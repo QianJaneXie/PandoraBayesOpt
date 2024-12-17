@@ -119,13 +119,13 @@ def run_bayesopt_experiment(config):
     )
     if policy == 'RandomSearch':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class="RandomSearch"
+            budget = budget, 
+            acquisition_function_class = "RandomSearch"
         )
     elif policy == 'ExpectedImprovementWithoutCost':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=ExpectedImprovement
+            budget = budget, 
+            acquisition_function_class = ExpectedImprovement
         )
     elif policy == 'ExpectedImprovementPerUnitCost':
         Optimizer.run_until_budget(
@@ -140,8 +140,8 @@ def run_bayesopt_experiment(config):
         )
     elif policy == 'BudgetedMultiStepLookaheadEI':
         Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=BudgetedMultiStepLookaheadEI
+            budget = budget, 
+            acquisition_function_class = BudgetedMultiStepLookaheadEI
         )
     elif policy == 'MultiFidelityMaxValueEntropy':
         Optimizer.run_until_budget(
@@ -169,7 +169,7 @@ def run_bayesopt_experiment(config):
     elif policy == 'GittinsDecay_InitLambda_0001':
         Optimizer.run_until_budget(
             budget = budget, 
-            acquisition_function_class=GittinsIndex,
+            acquisition_function_class = GittinsIndex,
             step_divide = True,
             init_lmbda = 0.0001,
             alpha = 2
