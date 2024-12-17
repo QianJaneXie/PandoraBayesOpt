@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# Copyright (c) 2024 Qian Xie
+
 from typing import Callable, Optional, Union
 import torch
 from torch import Tensor
