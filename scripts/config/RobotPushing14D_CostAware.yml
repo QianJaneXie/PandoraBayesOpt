@@ -24,9 +24,7 @@ parameters:
       # - Gittins_Step_Divide10
       # - Gittins_Step_EIpu
       - BudgetedMultiStepLookaheadEI
-  budget:
-    value: 800
   cost_function_type:
-    values: ["unknown", "mean", "max"]
+    values: ["unknown", "max"]
 
 

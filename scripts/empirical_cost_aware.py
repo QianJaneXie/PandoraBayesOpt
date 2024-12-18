@@ -90,7 +90,6 @@ def run_bayesopt_experiment(config):
     if problem == "RobotPushing14D":
         cost_function_type = config["cost_function_type"]
         dim = 14
-        budget = 800
         target_location = torch.tensor([-4.4185, -4.3709])
         target_location2 = torch.tensor([-3.7641, -4.4742])
         def unnorm_X(X: torch.Tensor) -> torch.Tensor:
@@ -119,6 +118,7 @@ def run_bayesopt_experiment(config):
             return X_unnorm
 
         if cost_function_type in ("mean", "max"):
+            budget = 600
             def objective_function(X: torch.Tensor) -> torch.Tensor:
                 X_unnorm = unnorm_X(X)
                 objective_X = []
@@ -141,6 +141,7 @@ def run_bayesopt_experiment(config):
                 return torch.max(X_unnorm[:, 4], X_unnorm[:, 10]).unsqueeze(0)
             
         if cost_function_type == 'unknown':
+            budget = 800
             def objective_cost_function(X: torch.Tensor) -> torch.Tensor:
                 X_unnorm = unnorm_X(X)
                 objective_X = []
