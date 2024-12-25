@@ -113,7 +113,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             mean_obj = means[..., 0].squeeze(dim=-1)
             std_obj = stds[..., 0].squeeze(dim=-1)
 
-            mgf = (torch.exp(means[..., 1]) + 0.5 * vars[..., 1]).squeeze(dim=-1)
+            mgf = torch.exp(means[..., 1] + 0.5 * vars[..., 1]).squeeze(dim=-1)
 
             gi_value = GittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, mgf)
 
