@@ -9,6 +9,7 @@ from botorch.sampling.pathwise import draw_kernel_feature_paths
 from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
+from pandora_bayesopt.acquisition.log_ei_puc import LogExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from botorch.acquisition.max_value_entropy_search import qMultiFidelityMaxValueEntropy
@@ -132,15 +133,26 @@ def run_bayesopt_experiment(config):
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost
         )
+    elif policy == 'LogExpectedImprovementPerUnitCost':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = LogExpectedImprovementWithCost
+        )
     elif policy == 'ExpectedImprovementWithCostCooling':
         Optimizer.run_until_budget(
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost,
             cost_cooling = True
         )
-    elif policy == 'BudgetedMultiStepLookaheadEI':
+    elif policy == 'LogExpectedImprovementWithCostCooling':
         Optimizer.run_until_budget(
             budget = budget, 
+            acquisition_function_class = LogExpectedImprovementWithCost,
+            cost_cooling = True
+        )
+    elif policy == 'BudgetedMultiStepLookaheadEI':
+        Optimizer.run_until_budget(
+            budget = budget,
             acquisition_function_class = BudgetedMultiStepLookaheadEI
         )
     elif policy == 'MultiFidelityMaxValueEntropy':

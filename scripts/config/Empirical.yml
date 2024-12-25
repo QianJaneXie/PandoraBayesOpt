@@ -14,6 +14,7 @@ parameters:
     values:
       - RandomSearch
       - ExpectedImprovement
+      - LogExpectedImprovement
       - ThompsonSampling
       - UpperConfidenceBound
       # - PredictiveEntropySearch
@@ -26,4 +27,3 @@ parameters:
       - Gittins_Step_Divide5
       - Gittins_Step_Divide10
       - Gittins_Step_EIpu
-

@@ -18,6 +18,7 @@ parameters:
       - ThompsonSampling
       - UpperConfidenceBound
       - ExpectedImprovement
+      - LogExpectedImprovement
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
@@ -26,4 +27,3 @@ parameters:
       - PredictiveEntropySearch
       - KnowledgeGradient
       - MultiStepLookaheadEI
-

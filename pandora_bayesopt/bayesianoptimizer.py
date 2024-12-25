@@ -3,10 +3,11 @@
 from typing import Callable, Optional
 import torch
 from torch import Tensor
-from botorch.acquisition import ExpectedImprovement, UpperConfidenceBound
+from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement, UpperConfidenceBound
 from botorch.acquisition.multi_step_lookahead import warmstart_multistep
 from .acquisition.gittins import GittinsIndex
 from .acquisition.ei_puc import ExpectedImprovementWithCost
+from pandora_bayesopt.acquisition.log_ei_puc import LogExpectedImprovementWithCost
 from .acquisition.multi_step_ei import MultiStepLookaheadEI
 from .acquisition.budgeted_multi_step_ei import BudgetedMultiStepLookaheadEI
 from botorch.sampling.pathwise import draw_matheron_paths
@@ -225,12 +226,12 @@ class BayesianOptimizer:
                 acqf_args['maximize'] = self.maximize
             
             
-            elif acquisition_function_class == ExpectedImprovement:
+            elif acquisition_function_class in (ExpectedImprovement, LogExpectedImprovement):
                 acqf_args['best_f'] = self.best_f
                 acqf_args['maximize'] = self.maximize
 
             
-            elif acquisition_function_class == ExpectedImprovementWithCost:
+            elif acquisition_function_class in (ExpectedImprovementWithCost, LogExpectedImprovementWithCost):
                 acqf_args['best_f'] = self.best_f
                 acqf_args['maximize'] = self.maximize
                 acqf_args['cost'] = self.cost

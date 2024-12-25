@@ -19,9 +19,10 @@ parameters:
   policy:
     values:
       - RandomSearch
-      - ExpectedImprovementWithoutCost
       - ExpectedImprovementPerUnitCost
+      - LogExpectedImprovementPerUnitCost
       - ExpectedImprovementWithCostCooling
+      - LogExpectedImprovementWithCostCooling
       - MultiFidelityMaxValueEntropy
       - Gittins_Lambda_01
       - Gittins_Lambda_001
