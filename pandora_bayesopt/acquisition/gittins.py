@@ -28,27 +28,27 @@ class GittinsIndex(AnalyticAcquisitionFunction):
     `variance` properties). Only supports the case of `q=1`. The model can be either
     single-outcome or two-outcome.
 
-    `GI(x) = argmin_g |E(max(f(x) - g, 0))-lmbda * c(x)|,`
+    `PBGI(x) = argmin_g |E(max(f(x) - g, 0)) - lmbda * c(x)|,`
 
     where the expectation is taken over the value of stochastic function `f` at `x`.
 
     Example:
         Uniform-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.0001)
-        >>> gi = GI(test_X)
+        >>> PBGI = GittinsIndex(model, lmbda=0.0001)
+        >>> gi = PBGI(test_X)
         
         Varing-cost:
         >>> def cost_function(x):
         >>>     return 1+20*x.mean(dim=-1))
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.0001, cost=cost_function)
-        >>> gi = GI(test_X)
+        >>> PBGI = GittinsIndex(model, lmbda=0.0001, cost=cost_function)
+        >>> gi = PBGI(test_X)
 
         Unknown-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> GI = GittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
-        >>> gi = GI(test_X)
+        >>> PBGI = GittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
+        >>> gi = PBGI(test_X)
     """
 
     def __init__(
