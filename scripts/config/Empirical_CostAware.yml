@@ -19,7 +19,7 @@ parameters:
       # - Gittins_Lambda_01
       # - Gittins_Lambda_001
       - Gittins_Lambda_0001
-      - Gittins_Step_Divide2
+      - Gittins_Lmbda_1_Step_Divide2
       # - Gittins_Step_Divide5
       # - Gittins_Step_Divide10
       # - Gittins_Step_EIpu

@@ -23,7 +23,7 @@ parameters:
       - Gittins_Lambda_01
       - Gittins_Lambda_001
       - Gittins_Lambda_0001
-      - GittinsDecay_InitLambda_0001
+      - Gittins_Lmbda_1_Step_Divide2
       - BudgetedMultiStepLookaheadEI
   cost_function_type:
     values: ['mean']
