@@ -22,7 +22,8 @@ torch.set_default_dtype(torch.float64)
 class GittinsIndex(AnalyticAcquisitionFunction):
     r"""Single-outcome/Two-outcome Gittins Index (analytic).
 
-    Computes Gittins index using the analytic formula for a Normal posterior distribution. Unlike the
+    Computes Gittins Index using the bisection search and the analytic formula of 
+    Expected Improvement for a Normal posterior distribution. Unlike the
     MC-based acquisition functions, this relies on the posterior at single test
     point being Gaussian (and require the posterior to implement `mean` and
     `variance` properties). Only supports the case of `q=1`. The model can be either
@@ -36,19 +37,19 @@ class GittinsIndex(AnalyticAcquisitionFunction):
         Uniform-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
         >>> PBGI = GittinsIndex(model, lmbda=0.0001)
-        >>> gi = PBGI(test_X)
+        >>> pbgi = PBGI(test_X)
         
         Varing-cost:
         >>> def cost_function(x):
         >>>     return 1+20*x.mean(dim=-1))
         >>> model = SingleTaskGP(train_X, train_Y)
         >>> PBGI = GittinsIndex(model, lmbda=0.0001, cost=cost_function)
-        >>> gi = PBGI(test_X)
+        >>> pbgi = PBGI(test_X)
 
         Unknown-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
         >>> PBGI = GittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
-        >>> gi = PBGI(test_X)
+        >>> pbgi = PBGI(test_X)
     """
 
     def __init__(
