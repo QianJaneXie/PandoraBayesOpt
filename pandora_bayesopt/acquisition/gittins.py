@@ -201,10 +201,10 @@ class GittinsIndexFunction(Function):
         lmbda = ctx.lmbda  # Retrieve lmbda
 
                 
-        # Gradient of mean function with respect to x
+        # Gradient of the mean function with respect to X
         dmean_dX = grad(outputs=mean, inputs=X, grad_outputs=torch.ones_like(mean), retain_graph=True, allow_unused=True)[0]
 
-        # Gradient of the std function with respect to x
+        # Gradient of the std function with respect to X
         dsigma_dX = grad(outputs=sigma, inputs=X, grad_outputs=torch.ones_like(sigma), retain_graph=True, allow_unused=True)[0]
 
         if cost_X.requires_grad:

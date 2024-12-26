@@ -203,6 +203,15 @@ def run_bayesopt_experiment(config):
             acquisition_function_class = GittinsIndex,
             lmbda = 0.0001
         )
+    elif policy == 'Gittins_Lmbda_1_Step_Divide2':
+        Optimizer.run(
+            num_iterations=num_iterations,
+            acquisition_function_class=GittinsIndex,
+            step_divide = True,
+            init_lmbda = 0.1,
+            alpha = 2
+        )
+
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     runtime_history = Optimizer.get_runtime_history()
