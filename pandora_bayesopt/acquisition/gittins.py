@@ -154,7 +154,6 @@ class GittinsIndexFunction(Function):
         size = X.size(0)
         l = bound[0]*torch.ones(size)
         h = bound[1]*torch.ones(size)
-        m = (h + l) / 2
 
         if maximize:
             while torch.any(cost_adjusted_expected_improvement(best_f=l) < 0):
@@ -168,6 +167,7 @@ class GittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
+        m = (h + l) / 2
         for i in range(100):
             sgn_m = torch.sign(cost_adjusted_expected_improvement(best_f=m))
             if maximize:

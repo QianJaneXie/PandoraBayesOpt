@@ -2,7 +2,6 @@
 
 # Copyright (c) 2024 Qian Xie
 
-import math
 from typing import Callable, Optional, Union
 import torch
 from torch import Tensor
@@ -13,9 +12,14 @@ from botorch.acquisition.analytic import (_scaled_improvement, _log_ei_helper)
 from botorch.acquisition.objective import PosteriorTransform
 from botorch.utils.transforms import t_batch_mode_transform
 from botorch.utils.probability.utils import (
+    log_ndtr as log_Phi,
+    log_phi,
+    log_prob_normal_in,
     ndtr as Phi,
     phi,
 )
+from botorch.utils.safe_math import log1mexp, logmeanexp
+
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
@@ -156,7 +160,6 @@ class LogGittinsIndexFunction(Function):
         size = X.size(0)
         l = bound[0] * torch.ones(size, requires_grad=False)
         h = bound[1] * torch.ones(size, requires_grad=False)
-        m = (h + l) / 2
 
         if maximize:
             while torch.any(cost_adjusted_log_expected_improvement(best_f=l) < 0):
@@ -170,6 +173,7 @@ class LogGittinsIndexFunction(Function):
                 h = 2 * h
 
         # Bisection method
+        m = (h + l) / 2
         for i in range(100):
             sgn_m = torch.sign(cost_adjusted_log_expected_improvement(best_f=m))
             if maximize:
@@ -180,24 +184,11 @@ class LogGittinsIndexFunction(Function):
                 h = torch.where(sgn_m >= 0, m, h)
             m = (h + l) / 2
 
-        # Save u and log_h(u) for backward computation
-        mean.requires_grad_()
-        sigma.requires_grad_()
-        # print("mean.requires_grad:", mean.requires_grad)  # Should be True
-        # print("sigma.requires_grad:", sigma.requires_grad)  # Should be True
-        # print("m.requires_grad:", m.requires_grad)  # Should be False
-        
+        # Save u for backward computation
         u = _scaled_improvement(mean, sigma, m, maximize)
-        u.requires_grad_()
-        log_h_u = _log_ei_helper(u)
-        # print("u.requires_grad:", u.requires_grad)
-        # print("u.grad_fn:", u.grad_fn)
-        # print("log_h_u.requires_grad:", log_h_u.requires_grad)
-        # print("log_h_u.grad_fn:", log_h_u.grad_fn)
-        # print()
         
         # Save values needed in the backward pass
-        ctx.save_for_backward(X, mean, sigma, u, log_h_u, log_cost_X)
+        ctx.save_for_backward(X, mean, sigma, u, log_cost_X)
         
         # Save boolean flag directly in ctx
         ctx.maximize = maximize
@@ -208,13 +199,9 @@ class LogGittinsIndexFunction(Function):
     def backward(ctx, grad_output):
                 
         # Retrieve saved tensors
-        X, mean, sigma, u, log_h_u, log_cost_X = ctx.saved_tensors
+        X, mean, sigma, u, log_cost_X = ctx.saved_tensors
+        # print("sigma:", sigma)
         maximize = ctx.maximize  # Retrieve the boolean flag directly from ctx
-        print("mean:", mean)
-        print("u:", u)
-        print("log_h_u:", log_h_u)
-        print("log_h_u.grad_fn:", log_h_u.grad_fn)  # Should not be None
-
                 
         # Gradient of the mean function with respect to X
         dmean_dX = grad(outputs=mean, inputs=X, grad_outputs=torch.ones_like(mean), retain_graph=True, allow_unused=True)[0]
@@ -223,7 +210,16 @@ class LogGittinsIndexFunction(Function):
         dsigma_dX = grad(outputs=sigma, inputs=X, grad_outputs=torch.ones_like(sigma), retain_graph=True, allow_unused=True)[0]
 
         # Gradient of the log_h function with respect to u
-        dlogh_du = grad(outputs=log_h_u, inputs=u, grad_outputs=torch.ones_like(log_h_u), retain_graph=True, allow_unused=True)[0]
+        with torch.enable_grad():
+            u.requires_grad_()
+            log_h_u = _log_ei_helper(u)
+            dlogh_du = grad(
+                outputs=log_h_u,
+                inputs=u,
+                grad_outputs=torch.ones_like(log_h_u),
+                retain_graph=True,
+                allow_unused=True,
+            )[0]
 
         if log_cost_X.requires_grad:
             # Compute gradient only if cost_X is not a scalar
@@ -237,6 +233,9 @@ class LogGittinsIndexFunction(Function):
             raise RuntimeError("Gradients could not be computed for one or more components.")
         
         # Compute the gradient of the Gittins acquisition function
-        grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - u * dsigma_dX + dsigma_dX / dlogh_du - sigma * dlog_cost_dX)
+        if maximize:
+            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - dsigma_dX * u.unsqueeze(-1).unsqueeze(-1) + dsigma_dX / dlogh_du.unsqueeze(-1).unsqueeze(-1) - sigma.unsqueeze(-1).unsqueeze(-1) * dlog_cost_dX)
+        else:
+            grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX + dsigma_dX * u.unsqueeze(-1).unsqueeze(-1) - dsigma_dX / dlogh_du.unsqueeze(-1).unsqueeze(-1) - sigma.unsqueeze(-1).unsqueeze(-1) * dlog_cost_dX)
         
-        return grad_X, None, None, None, None, None, None, None, None
+        return grad_X, None, None, None, None, None, None, None
