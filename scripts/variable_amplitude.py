@@ -7,8 +7,9 @@ import torch
 from pandora_bayesopt.utils import create_objective_function
 from gpytorch.kernels import MaternKernel
 from pandora_bayesopt.kernel import VariableAmplitudeKernel
-from botorch.acquisition import ExpectedImprovement
+from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement
 from pandora_bayesopt.acquisition.ei_puc import ExpectedImprovementWithCost
+from pandora_bayesopt.acquisition.log_ei_puc import LogExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 import numpy as np
@@ -106,7 +107,7 @@ def run_bayesopt_experiment(config):
         return matern_sample(x) * amplitude_function(x)
 
     # Find the global optimum using grid search
-    grid_points = torch.linspace(0, 1, 1+int(10/lengthscale))
+    grid_points = torch.linspace(0.45, 0.55, 1+int(1/lengthscale))
     grid_values = objective_function(grid_points.view(-1,1))
     global_optimum_value = torch.max(grid_values)
     print("global_optimum", global_optimum_value)
@@ -143,6 +144,16 @@ def run_bayesopt_experiment(config):
             budget = budget, 
             acquisition_function_class = ExpectedImprovementWithCost
         )
+    elif policy == 'LogExpectedImprovementWithoutCost':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class=LogExpectedImprovement
+        )
+    elif policy == 'LogExpectedImprovementPerUnitCost':
+        Optimizer.run_until_budget(
+            budget = budget, 
+            acquisition_function_class = LogExpectedImprovementWithCost
+        )
     elif policy == 'Gittins_Lambda_01':
         Optimizer.run_until_budget(
             budget = budget, 
@@ -168,26 +179,7 @@ def run_bayesopt_experiment(config):
             step_divide = True,
             alpha = 2
         )
-    elif policy == 'Gittins_Step_Divide5':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 5
-        )
-    elif policy == 'Gittins_Step_Divide10':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_divide = True,
-            alpha = 10
-        )
-    elif policy == 'Gittins_Step_EIpu':
-        Optimizer.run_until_budget(
-            budget=budget, 
-            acquisition_function_class=GittinsIndex,
-            step_EIpu = True
-        )
+
     cost_history = Optimizer.get_cost_history()
     best_history = Optimizer.get_best_history()
     regret_history = Optimizer.get_regret_history(global_optimum_value)

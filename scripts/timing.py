@@ -3,7 +3,7 @@
 import torch
 from botorch.test_functions.synthetic import Ackley, Rosenbrock, Levy
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.acquisition import ExpectedImprovement
+from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement
 from pandora_bayesopt.acquisition.multi_step_ei import MultiStepLookaheadEI
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
@@ -69,6 +69,11 @@ def run_bayesopt_experiment(config):
         Optimizer.run(
             num_iterations=num_iterations, 
             acquisition_function_class=ExpectedImprovement
+        )
+    elif policy == 'LogExpectedImprovement':
+        Optimizer.run(
+            num_iterations=num_iterations, 
+            acquisition_function_class=LogExpectedImprovement
         )
     elif policy == 'KnowledgeGradient':
         Optimizer.run(
