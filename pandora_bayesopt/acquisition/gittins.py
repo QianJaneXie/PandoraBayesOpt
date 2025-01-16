@@ -19,6 +19,7 @@ from botorch.utils.probability.utils import (
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
 
+
 class GittinsIndex(AnalyticAcquisitionFunction):
     r"""Single-outcome/Two-outcome Gittins Index (analytic).
 
@@ -130,7 +131,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value
-    
+
 
 class GittinsIndexFunction(Function):
     @staticmethod
@@ -199,7 +200,6 @@ class GittinsIndexFunction(Function):
         X, mean, sigma, u, cost_X = ctx.saved_tensors
         maximize = ctx.maximize  # Retrieve the boolean flag directly from ctx
         lmbda = ctx.lmbda  # Retrieve lmbda
-
                 
         # Gradient of the mean function with respect to X
         dmean_dX = grad(outputs=mean, inputs=X, grad_outputs=torch.ones_like(mean), retain_graph=True, allow_unused=True)[0]

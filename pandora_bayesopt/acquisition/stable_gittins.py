@@ -11,20 +11,13 @@ from botorch.models.model import Model
 from botorch.acquisition.analytic import (_scaled_improvement, _log_ei_helper)
 from botorch.acquisition.objective import PosteriorTransform
 from botorch.utils.transforms import t_batch_mode_transform
-from botorch.utils.probability.utils import (
-    log_ndtr as log_Phi,
-    log_phi,
-    log_prob_normal_in,
-    ndtr as Phi,
-    phi,
-)
-from botorch.utils.safe_math import log1mexp, logmeanexp
 
 
 # Set default tensor type to float64
 torch.set_default_dtype(torch.float64)
 
-class LogGittinsIndex(AnalyticAcquisitionFunction):
+
+class StableGittinsIndex(AnalyticAcquisitionFunction):
     r"""Single-outcome/Two-outcome Gittins Index (analytic).
 
     Computes Gittins Index using the bisection search and the analytic formula of 
@@ -34,27 +27,27 @@ class LogGittinsIndex(AnalyticAcquisitionFunction):
     predicted to be virtually impossible. Only supports the case of `q=1`. The model can be 
     either single-outcome or two-outcome.
 
-    `LogPBGI(x) = argmin_g |log(E(max(f(x) - g, 0))) - log(lmbda) - log(c(x))|,`
+    `StablePBGI(x) = argmin_g |log(E(max(f(x) - g, 0))) - log(lmbda) - log(c(x))|,`
 
     where the expectation is taken over the value of stochastic function `f` at `x`.
 
     Example:
         Uniform-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> LogPBGI = LogGittinsIndex(model, lmbda=0.0001)
-        >>> pbgi = LogPBGI(test_X)
+        >>> StablePBGI = StableGittinsIndex(model, lmbda=0.0001)
+        >>> pbgi = StablePBGI(test_X)
         
         Varing-cost:
         >>> def cost_function(x):
         >>>     return 1+20*x.mean(dim=-1))
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> LogPBGI = LogGittinsIndex(model, lmbda=0.0001, cost=cost_function)
-        >>> pbgi = LogPBGI(test_X)
+        >>> StablePBGI = StableGittinsIndex(model, lmbda=0.0001, cost=cost_function)
+        >>> pbgi = StablePBGI(test_X)
 
         Unknown-cost:
         >>> model = SingleTaskGP(train_X, train_Y)
-        >>> LogPBGI = LogGittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
-        >>> pbgi = LogPBGI(test_X)
+        >>> StablePBGI = StableGittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
+        >>> pbgi = StablePBGI(test_X)
     """
 
     def __init__(
@@ -91,8 +84,7 @@ class LogGittinsIndex(AnalyticAcquisitionFunction):
         self.bound = bound
         self.eps = eps
         self.cost = cost if cost is not None else 1.0
-        self.unknown_cost = unknown_cost
-      
+        self.unknown_cost = unknown_cost      
         
     @t_batch_mode_transform(expected_q=1, assert_output_shape=False)
     def forward(self, X: Tensor) -> Tensor:
@@ -120,7 +112,7 @@ class LogGittinsIndex(AnalyticAcquisitionFunction):
 
             log_mgf = (means[..., 1] + 0.5 * vars[..., 1]).squeeze(dim=-1)
 
-            gi_value = LogGittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, log_mgf)
+            gi_value = StableGittinsIndexFunction.apply(X, mean_obj, std_obj, self.lmbda, self.maximize, self.bound, self.eps, log_mgf)
 
         else:
             # Handling the known cost scenario
@@ -131,13 +123,13 @@ class LogGittinsIndex(AnalyticAcquisitionFunction):
             else:
                 log_cost_X = torch.zeros_like(mean)
 
-            gi_value = LogGittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, log_cost_X)
+            gi_value = StableGittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, log_cost_X)
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
         return gi_value if self.maximize else -gi_value
     
 
-class LogGittinsIndexFunction(Function):
+class StableGittinsIndexFunction(Function):
     @staticmethod
         
     def forward(
@@ -200,7 +192,6 @@ class LogGittinsIndexFunction(Function):
                 
         # Retrieve saved tensors
         X, mean, sigma, u, log_cost_X = ctx.saved_tensors
-        # print("sigma:", sigma)
         maximize = ctx.maximize  # Retrieve the boolean flag directly from ctx
                 
         # Gradient of the mean function with respect to X
@@ -232,7 +223,7 @@ class LogGittinsIndexFunction(Function):
         if dmean_dX is None or dsigma_dX is None or dlog_cost_dX is None or dlogh_du is None:
             raise RuntimeError("Gradients could not be computed for one or more components.")
         
-        # Compute the gradient of the Gittins acquisition function
+        # Compute the gradient of the Stable Gittins Index acquisition function
         if maximize:
             grad_X = grad_output.unsqueeze(-1).unsqueeze(-1) * (dmean_dX - dsigma_dX * u.unsqueeze(-1).unsqueeze(-1) + dsigma_dX / dlogh_du.unsqueeze(-1).unsqueeze(-1) - sigma.unsqueeze(-1).unsqueeze(-1) * dlog_cost_dX)
         else:

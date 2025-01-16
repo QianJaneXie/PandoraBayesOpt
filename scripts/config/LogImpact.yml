@@ -1,0 +1,26 @@
+name: LogImpact
+program: scripts/impact_of_log.py
+method: grid
+parameters:
+  dim:
+    values: [16]
+  kernel:
+    values: ["Matern52"]
+  lengthscale:
+    values: [0.1]
+  amplitude:
+    values: [1.0]
+  seed:
+    values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+  output_standardize:
+    value: false
+  draw_initial_method:
+    values: ['sobol']
+  policy:
+    values:
+      - VanillaExpectedImprovement
+      - LogVanillaExpectedImprovement
+      - StableExpectedImprovement
+      - LogStableExpectedImprovement
+      - VanillaGittinsIndex
+      - StableGittinsIndex

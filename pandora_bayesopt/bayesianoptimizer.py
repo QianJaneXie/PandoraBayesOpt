@@ -4,8 +4,10 @@ from typing import Callable, Optional
 import torch
 from torch import Tensor
 from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement, UpperConfidenceBound
+from pandora_bayesopt.acquisition.log_ei import LogVanillaExpectedImprovement, StableExpectedImprovement
 from botorch.acquisition.multi_step_lookahead import warmstart_multistep
 from .acquisition.gittins import GittinsIndex
+from .acquisition.stable_gittins import StableGittinsIndex
 from .acquisition.ei_puc import ExpectedImprovementWithCost
 from pandora_bayesopt.acquisition.log_ei_puc import LogExpectedImprovementWithCost
 from .acquisition.multi_step_ei import MultiStepLookaheadEI
@@ -112,7 +114,7 @@ class BayesianOptimizer:
             new_point = torch.rand(1, self.dim)
             
         else:
-            if acquisition_function_class in (ExpectedImprovementWithCost, GittinsIndex, BudgetedMultiStepLookaheadEI):
+            if acquisition_function_class in (ExpectedImprovementWithCost, LogExpectedImprovementWithCost, GittinsIndex, BudgetedMultiStepLookaheadEI):
                 unknown_cost = self.unknown_cost
             else:
                 unknown_cost = False
@@ -162,7 +164,7 @@ class BayesianOptimizer:
                     self.current_acq = new_point_PES.item()
 
             
-            if acquisition_function_class == GittinsIndex:
+            if acquisition_function_class in (GittinsIndex, StableGittinsIndex):
                 acqf_args['maximize'] = self.maximize
                 
                 if acqf_kwargs.get('step_EIpu') == True:
@@ -226,7 +228,7 @@ class BayesianOptimizer:
                 acqf_args['maximize'] = self.maximize
             
             
-            elif acquisition_function_class in (ExpectedImprovement, LogExpectedImprovement):
+            elif acquisition_function_class in (ExpectedImprovement, LogExpectedImprovement, LogVanillaExpectedImprovement, StableExpectedImprovement):
                 acqf_args['best_f'] = self.best_f
                 acqf_args['maximize'] = self.maximize
 
@@ -340,7 +342,7 @@ class BayesianOptimizer:
         self.acq_history.append(self.current_acq)
 
         # Check if lmbda needs to be updated in the next iteration
-        if acquisition_function_class == GittinsIndex and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
+        if acquisition_function_class in (GittinsIndex, StableGittinsIndex) and (acqf_kwargs.get('step_EIpu') == True or acqf_kwargs.get('step_divide') == True):
             if (self.maximize and self.current_acq < self.best_f) or (not self.maximize and -self.current_acq > self.best_f):
                 self.need_lmbda_update = True
 
@@ -375,7 +377,7 @@ class BayesianOptimizer:
 
     def run(self, num_iterations, acquisition_function_class, **acqf_kwargs):
         self.budget = num_iterations
-        if acquisition_function_class == GittinsIndex:
+        if acquisition_function_class in (GittinsIndex, StableGittinsIndex):
             self.lmbda_history = []
             if acqf_kwargs.get('step_EIpu') == True:
                 self.current_lmbda = None
@@ -397,7 +399,7 @@ class BayesianOptimizer:
 
     def run_until_budget(self, budget, acquisition_function_class, **acqf_kwargs):
         self.budget = budget
-        if acquisition_function_class == GittinsIndex:
+        if acquisition_function_class in (GittinsIndex, StableGittinsIndex):
             self.lmbda_history = []
             if acqf_kwargs.get('step_EIpu') == True:
                 self.current_lmbda = None
