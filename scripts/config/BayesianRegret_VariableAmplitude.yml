@@ -7,7 +7,7 @@ parameters:
   dim:
     values: [1]
   lengthscale:
-    values: [0.01,0.001,0.0001]
+    values: [0.0001]
   amplitude:
     values: [1.0]
   num_rff_features:
@@ -20,9 +20,8 @@ parameters:
     values:
       - ExpectedImprovementWithoutCost
       - ExpectedImprovementPerUnitCost
-      # - BudgetedMultiStepExpectedImprovement
-      - Gittins_Lambda_01
-      - Gittins_Lambda_001
+      # - Gittins_Lambda_01
+      # - Gittins_Lambda_001
       - Gittins_Lambda_0001
       # - Gittins_Step_Divide2
       # - Gittins_Step_Divide5

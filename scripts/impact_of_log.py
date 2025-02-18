@@ -10,7 +10,7 @@ from botorch.utils.sampling import optimize_posterior_samples
 from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement
 from pandora_bayesopt.acquisition.log_ei import LogVanillaExpectedImprovement, StableExpectedImprovement
 from pandora_bayesopt.acquisition.gittins import GittinsIndex
-from pandora_bayesopt.acquisition.robust_gittins import StableGittinsIndex
+from pandora_bayesopt.acquisition.stable_gittins import StableGittinsIndex
 from pandora_bayesopt.bayesianoptimizer import BayesianOptimizer
 
 import numpy as np

@@ -7,7 +7,7 @@ parameters:
   kernel:
     values: ["Matern52"]
   lengthscale:
-    values: [1.0,0.1]
+    values: [0.1]
   amplitude:
     values: [1.0]
   seed:
