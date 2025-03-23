@@ -50,13 +50,13 @@ class LowerConfidenceBound(AnalyticAcquisitionFunction):
 
     @t_batch_mode_transform(expected_q=1)
     def forward(self, X: Tensor) -> Tensor:
-        r"""Evaluate the Upper Confidence Bound on the candidate set X.
+        r"""Evaluate the Lower Confidence Bound on the candidate set X.
 
         Args:
             X: A `(b1 x ... bk) x 1 x d`-dim batched tensor of `d`-dim design points.
 
         Returns:
-            A `(b1 x ... bk)`-dim tensor of Upper Confidence Bound values at the
+            A `(b1 x ... bk)`-dim tensor of Lower Confidence Bound values at the
             given design points `X`.
         """
         mean, sigma = self._mean_and_sigma(X)
