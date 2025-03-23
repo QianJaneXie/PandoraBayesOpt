@@ -36,20 +36,20 @@ class GittinsIndex(AnalyticAcquisitionFunction):
 
     Example:
         Uniform-cost:
-        >>> model = SingleTaskGP(train_X, train_Y)
+        >>> model = fit_gp_model(train_X, train_Y)
         >>> PBGI = GittinsIndex(model, lmbda=0.0001)
         >>> pbgi = PBGI(test_X)
         
         Varing-cost:
         >>> def cost_function(x):
         >>>     return 1+20*x.mean(dim=-1))
-        >>> model = SingleTaskGP(train_X, train_Y)
+        >>> model = fit_gp_model(train_X, train_Y)
         >>> PBGI = GittinsIndex(model, lmbda=0.0001, cost=cost_function)
         >>> pbgi = PBGI(test_X)
 
         Unknown-cost:
-        >>> model = SingleTaskGP(train_X, train_Y)
-        >>> PBGI = GittinsIndex(model, lmbda=0.0001, cost=cost_function, unknown_cost=True)
+        >>> model = fit_gp_model(train_X, train_Y, cost_X)
+        >>> PBGI = GittinsIndex(model, lmbda=0.0001, unknown_cost=True)
         >>> pbgi = PBGI(test_X)
     """
 
