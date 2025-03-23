@@ -10,29 +10,31 @@ This repository contains the implementation of the Pandora's box Gittins index (
     - Random search (RS)*
     - Thompson sampling (TS)
     - Upper confidence bound (UCB)
-    - Expected improvement (EI)*
+    - Expected improvement (EI) & its log variant (LogEI)
     - Knowledge gradient (KG)
     - Multi-step lookahead EI (MSEI)
     - Max-value Entropy Search (MES)
   - Varying-cost Bayesian Optimization
-    - Expected improvement per unit cost (EIPC)
+    - Expected improvement per unit cost (EIPC) & its log variant (LogEIPC)
+    - Expected improvement with cost-cooling (EICC) & its log variant (LogEICC)
     - Budgeted multi-step lookahead EI (BMSEI)
     - Multi-fidelity Max-value Entropy Search (MF-MES)
  
-*Note: PBGI, PBGI-D, RS, and EI were also run for varying-cost Bayesian optimization.
+*Note: PBGI, PBGI-D, and RS are also run for varying-cost Bayesian optimization.
 
 The implementation of PBGI, EIPC, MSEI, and BMSEI can be found in `pandora_bayesopt/acquisition`. The Bayesian optimization process with these policies can be found in the class BayesianOptimizer in `pandora_bayesopt/bayesianoptimizer.py`.
  
 ## Contexts
 - **Experiments**
   - Bayesian regret (fixed-amplitude)
-  - Synthetic benchmark
-  - Empirical
+  - Synthetic benchmark (Ackley, Levy, Rosenbrock)
+  - Empirical (Pest Control, Lunar Lander, Robot Pushing)
   - Timing
 - **Illustrations**
   - EI/EIPC poor performance (via Bayesian-regret variable-amplitude)
   - Impact of lambda (cost-scaling factor of PBGI)
-  - Impact of initial lambda and beta (constant adaptive decay factor of PBGI-D)
+  - Impact of combinations of initial lambda and beta (constant adaptive decay factor of PBGI-D)
+  - Impact of log-scaling and numerical stability on EI and PBGI
  
 The empirical objective functions we used in our experiments can be found in `pandora_bayesopt/test_functions`.
  
