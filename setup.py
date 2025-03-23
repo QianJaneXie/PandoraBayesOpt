@@ -21,7 +21,7 @@ requirements = [
 setup(
     name="pandora_bayesopt",
     version="1.0",
-    description="Experiments for Bayesian optimization with Pandora's box",
+    description="Experiments for Bayesian optimization with Pandora's box Gittins indices",
     author="Qian Xie and collaborators",
     python_requires='>=3.9',
     packages=["pandora_bayesopt"],
