@@ -40,6 +40,8 @@ def fit_gp_model(
     if unknown_cost == True:
         if cost_X.ndim == 1:
             log_cost_X = torch.log(cost_X).unsqueeze(dim=-1)
+        else:
+            log_cost_X = torch.log(cost_X)
 
     Y = torch.cat((objective_X, log_cost_X), dim=-1) if unknown_cost else objective_X
         
