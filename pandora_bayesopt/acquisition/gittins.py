@@ -130,7 +130,7 @@ class GittinsIndex(AnalyticAcquisitionFunction):
             gi_value = GittinsIndexFunction.apply(X, mean, sigma, self.lmbda, self.maximize, self.bound, self.eps, cost_X)
 
         # If maximizing, return the GI value as is; if minimizing, return its negative
-        return gi_value if self.maximize else -gi_value
+        return gi_value
 
 
 class GittinsIndexFunction(Function):
