@@ -2,7 +2,7 @@
 This repository contains the implementation of the Pandora's box Gittins index (PBGI) policy and its variants. The policies are compared against various baselines in the context of uniform-cost and varying-cost Bayesian Optimization.
 
 ## Policies
-- **Our Policies**:
+- **Our policies**:
   - Pandora's box Gittins index (PBGI)*
   - Pandora's box Gittins index with adaptive decay (PBGI-D)*
 - **Baselines**:
@@ -43,17 +43,17 @@ All our experiments were run using Weights & Biases (wandb) for tracking and ana
 
 1. **Prepare configuration file**: Each of our experiment takes a wandb configuration file as an input. These configuration files can be found in the folder scripts/config, which lists all the hyperparameter choices for a wandb sweep. This configuration file is not necessary if you choose to run the experiments directly using Python scripts.
    
-2. **Run Experiment**: You have two options to run the experiments:
+2. **Run experiment**: You have two options to run the experiments:
    - **Using wandb sweep**: If you wish to use wandb for tracking and analysis, launch the wandb agent using the following command to run a sweep of hyperparameter choices:
      ```sh
      wandb agent <sweep_id>
      ```
-   - **Using Python Scripts Directly**: Execute the experiments by running the appropriate Python script. Each script can be found in the `scripts` folder and includes a function named `run_bayesopt_experiment`. If you choose to run the Python scripts directly, replace or comment out the lines involving wandb operations. For example:
+   - **Using Python scripts directly**: Execute the experiments by running the appropriate Python script. Each script can be found in the `scripts` folder and includes a function named `run_bayesopt_experiment`. If you choose to run the Python scripts directly, replace or comment out the lines involving wandb operations. For example:
      ```sh
      python scripts/<script_name>.py
      ```
 
-3. **Handle Hyperparameters**: 
+3. **Handle hyperparameters**: 
    The Bayesian optimization process is executed with the hyperparameters specified in the configuration file. This is handled by the `run_bayesopt_experiment` function found in each script within the `scripts` folder. This function handles not only the Bayesian optimization process but also the objective function and the outputs. If you choose to run the experiments using Python scripts directly, change the input of `run_bayesopt_experiment` from a configuration to a set of hyperparameters.
 
 3. **Log data**: Whether using wandb or just Python scripts, ensure that all relevant data and metrics are logged for analysis.
